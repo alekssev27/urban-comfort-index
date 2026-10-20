@@ -5,7 +5,8 @@ from src.scoring import CRITERIA, calculate_index
 def test_calculate_weighted_index():
     scores = {"transport": 80, "education": 60, "medical": 70, "green": 50, "daily": 90, "leisure": 40}
     weights = {"transport": 3, "education": 1, "medical": 0, "green": 0, "daily": 0, "leisure": 0}
-    assert calculate_index(scores, weights) == pytest.approx(80)
+    # (80 * 3 + 60 * 1) / (3 + 1) = 75
+    assert calculate_index(scores, weights) == pytest.approx(75)
 
 
 def test_zero_weights_return_zero():
