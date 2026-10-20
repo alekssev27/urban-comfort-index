@@ -1,26 +1,18 @@
-"""Расчёт персонализированного индекса комфорта."""
+CRITERIA = {
+    "transport": "Транспорт",
+    "education": "Образование",
+    "medical": "Медицина",
+    "green": "Зелёные зоны",
+    "daily": "Повседневная инфраструктура",
+    "leisure": "Досуг",
+}
 
 
-def calculate_comfort_index(scores: dict, weights: dict) -> float:
-    """Рассчитывает взвешенную оценку района по шкале 0–100."""
-    if not scores:
-        raise ValueError("Не переданы оценки критериев.")
-
-    if scores.keys() != weights.keys():
-        raise ValueError("Оценки и веса должны содержать одинаковые критерии.")
-
-    if any(not 0 <= score <= 100 for score in scores.values()):
-        raise ValueError("Оценки должны находиться в диапазоне 0–100.")
-
-    if any(weight < 0 for weight in weights.values()):
-        raise ValueError("Веса не могут быть отрицательными.")
-
+def calculate_index(row, weights):
+    """Calculate a weighted comfort score from 0 to 100."""
     total_weight = sum(weights.values())
 
-    if total_weight <= 0:
-        raise ValueError("Сумма весов должна быть больше нуля.")
+    if total_weight == 0:
+        return 0.0
 
-    return sum(
-        scores[key] * weights[key]
-        for key in scores
-    ) / total_weight
+    return sum(row[key] * weights[key] for key in CRITERIA) / total_weight

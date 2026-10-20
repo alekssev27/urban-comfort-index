@@ -6,6 +6,9 @@ import plotly.express as px
 import streamlit as st
 from streamlit_folium import st_folium
 
+from src.data_loader import load_demo_scores
+from src.scoring import CRITERIA, calculate_index
+
 st.set_page_config(
     page_title="Индекс комфорта",
     page_icon="🏙️",
@@ -14,51 +17,6 @@ st.set_page_config(
 )
 
 # ---------- Демонстрационные данные ----------
-
-DEMO_DATA = pd.DataFrame([
-    {
-        "name": "Территория А",
-        "lat": 53.421,
-        "lon": 58.980,
-        "transport": 85,
-        "education": 65,
-        "medical": 70,
-        "green": 80,
-        "daily": 75,
-        "leisure": 60,
-    },
-    {
-        "name": "Территория Б",
-        "lat": 53.405,
-        "lon": 58.995,
-        "transport": 65,
-        "education": 90,
-        "medical": 85,
-        "green": 70,
-        "daily": 80,
-        "leisure": 55,
-    },
-    {
-        "name": "Территория В",
-        "lat": 53.432,
-        "lon": 58.955,
-        "transport": 75,
-        "education": 60,
-        "medical": 65,
-        "green": 95,
-        "daily": 65,
-        "leisure": 85,
-    },
-])
-
-CRITERIA = {
-    "transport": "Транспорт",
-    "education": "Образование",
-    "medical": "Медицина",
-    "green": "Зелёные зоны",
-    "daily": "Повседневная инфраструктура",
-    "leisure": "Досуг",
-}
 
 PROFILES = {
     "Студент": {
@@ -87,17 +45,6 @@ PROFILES = {
     },
 }
 
-
-def calculate_index(row, weights):
-    total_weight = sum(weights.values())
-
-    if total_weight == 0:
-        return 0.0
-
-    return sum(
-        row[key] * weights[key]
-        for key in CRITERIA
-    ) / total_weight
 
 
 # ---------- Начальное состояние ----------
@@ -290,7 +237,7 @@ if sum(weights.values()) == 0:
         "Укажите ненулевой вес хотя бы одного критерия."
     )
 
-data = DEMO_DATA.copy()
+data = load_demo_scores()
 
 data["comfort_index"] = data.apply(
     lambda row: calculate_index(row, weights),
