@@ -32,11 +32,13 @@ def fetch_candidates(query: str) -> list[dict]:
 
 
 def is_boundary_candidate(item: dict) -> bool:
+    """Accept only administrative polygon features with an admin_level tag."""
     geometry = item.get("geojson")
     if not geometry or geometry.get("type") not in {"Polygon", "MultiPolygon"}:
         return False
     extratags = item.get("extratags") or {}
-    return item.get("class") == "boundary" and item.get("type") == "administrative" and extratags.get("admin_level") is not None
+    category = item.get("category", item.get("class"))  # JSONv2 calls this `category`.
+    return category == "boundary" and item.get("type") == "administrative" and extratags.get("admin_level") is not None
 
 
 def main() -> None:
@@ -46,14 +48,12 @@ def main() -> None:
     parser.add_argument("--osm-type", choices=["W", "R"], help="W=way, R=relation; required with --osm-id")
     parser.add_argument("--output", type=Path, default=OUTPUT)
     args = parser.parse_args()
-
     if bool(args.osm_id) != bool(args.osm_type):
         parser.error("--osm-id и --osm-type нужно указывать вместе")
 
     if args.osm_id:
-        lookup_url = "https://nominatim.openstreetmap.org/lookup"
         response = requests.get(
-            lookup_url,
+            "https://nominatim.openstreetmap.org/lookup",
             params={"osm_ids": f"{args.osm_type}{args.osm_id}", "format": "jsonv2",
                      "polygon_geojson": 1, "addressdetails": 1, "extratags": 1},
             headers={"User-Agent": USER_AGENT}, timeout=45,
@@ -65,10 +65,11 @@ def main() -> None:
 
     matches = [item for item in candidates if is_boundary_candidate(item)]
     if not matches:
-        print("Не найден подтверждённый административный полигон. Ничего не сохранено.")
+        print("Не найден административный полигон-кандидат. Ничего не сохранено.")
         print("Проверьте кандидатов в Nominatim вручную или передайте проверенный OSM ID.")
         for item in candidates[:10]:
-            print(f"- {item.get('display_name')} | {item.get('class')}/{item.get('type')} | OSM {item.get('osm_type')}:{item.get('osm_id')}")
+            category = item.get("category", item.get("class"))
+            print(f"- {item.get('display_name')} | {category}/{item.get('type')} | OSM {item.get('osm_type')}:{item.get('osm_id')}")
         raise SystemExit(2)
 
     if len(matches) > 1 and not args.osm_id:
@@ -76,28 +77,25 @@ def main() -> None:
         for index, item in enumerate(matches, start=1):
             tags = item.get("extratags") or {}
             print(f"{index}. {item.get('display_name')} | admin_level={tags.get('admin_level')} | OSM {item.get('osm_type')}:{item.get('osm_id')}")
-        print("Чтобы исключить неоднозначный выбор, проверьте нужный объект и повторите с --osm-id и --osm-type.")
+        print("Проверьте нужный объект и повторите с --osm-id и --osm-type.")
         raise SystemExit(3)
 
     item = matches[0]
     geom = shape(item["geojson"])
     if geom.is_empty or not geom.is_valid:
         raise SystemExit("Геометрия пуста или невалидна; файл не сохранён.")
-
     props = {
-        "name": item.get("name"),
-        "display_name": item.get("display_name"),
+        "name": item.get("name"), "display_name": item.get("display_name"),
         "source": "OpenStreetMap via Nominatim",
         "source_url": f"https://www.openstreetmap.org/{'relation' if item.get('osm_type') == 'relation' else 'way'}/{item.get('osm_id')}",
-        "osm_type": item.get("osm_type"),
-        "osm_id": item.get("osm_id"),
+        "osm_type": item.get("osm_type"), "osm_id": item.get("osm_id"),
         "admin_level": (item.get("extratags") or {}).get("admin_level"),
         "retrieved_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "license": "OpenStreetMap data, ODbL 1.0",
         "status": "candidate_boundary_requires_manual_review",
     }
-    feature = {"type": "Feature", "properties": props, "geometry": item["geojson"]}
-    collection = {"type": "FeatureCollection", "name": "magnitogorsk_boundary_candidate", "features": [feature]}
+    collection = {"type": "FeatureCollection", "name": "magnitogorsk_boundary_candidate",
+                  "features": [{"type": "Feature", "properties": props, "geometry": item["geojson"]}]}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(collection, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"Сохранено: {args.output}")
