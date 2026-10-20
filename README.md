@@ -23,6 +23,7 @@
 4. После проверки постройте сетку: `python scripts/build_grid.py`.
 5. Для первого слоя POI выполните `python scripts/fetch_osm_infrastructure.py`; результат появится в `data/raw/infrastructure_osm.geojson`.
 6. Результат сетки появится в `data/processed/grid_cells.geojson`.
+7. Для предварительной классификации жилых ячеек запусти `python scripts/classify_residential_cells.py`. Результат — `data/processed/cell_residentiality.csv`, а точки центров зданий — `data/raw/residential_buildings_osm.geojson`.
 
 Контур OSM является кандидатом, а не автоматически официальной границей. Сравните его с официальным геопорталом города: https://gisportal.magnitogorsk.ru/ . Документация: [`docs/data-sources.md`](docs/data-sources.md).
 
