@@ -2,14 +2,17 @@
 from __future__ import annotations
 
 import argparse
-import json
+import sys
 from pathlib import Path
 
-import geopandas as gpd
+ROOT = Path(__file__).resolve().parents[1]
+# Allow both `python scripts/build_grid.py` and `python -m scripts.build_grid`.
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
+import geopandas as gpd
 from src.grid import DEFAULT_CELL_SIZE_M, DEFAULT_CRS, generate_square_grid
 
-ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_BOUNDARY = ROOT / "data" / "raw" / "city_boundary.geojson"
 DEFAULT_OUTPUT = ROOT / "data" / "processed" / "grid_cells.geojson"
 
