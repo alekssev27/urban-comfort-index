@@ -21,7 +21,8 @@
 2. Попробуйте получить кандидат границы из OpenStreetMap: `python scripts/fetch_osm_boundary.py`.
 3. **Откройте `data/raw/city_boundary.geojson` и проверьте геометрию и метаданные.** Если скрипт сообщил о нескольких кандидатах, выберите подходящий объект вручную и повторите запрос с `--osm-id` и `--osm-type`.
 4. После проверки постройте сетку: `python scripts/build_grid.py`.
-5. Результат появится в `data/processed/grid_cells.geojson`.
+5. Для первого слоя POI выполните `python scripts/fetch_osm_infrastructure.py`; результат появится в `data/raw/infrastructure_osm.geojson`.
+6. Результат сетки появится в `data/processed/grid_cells.geojson`.
 
 Контур OSM является кандидатом, а не автоматически официальной границей. Сравните его с официальным геопорталом города: https://gisportal.magnitogorsk.ru/ . Документация: [`docs/data-sources.md`](docs/data-sources.md).
 
