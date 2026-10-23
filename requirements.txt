@@ -6,3 +6,5 @@ streamlit-folium
 plotly
 scikit-learn
 pytest
+requests
+shapely
