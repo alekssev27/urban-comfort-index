@@ -183,12 +183,14 @@ col1.metric("Жилых ячеек в рейтинге", f"{len(data):,}".replac
 col2.metric("Лучшая оценка", f"{best['comfort_index']:.1f} / 100")
 col3.metric("Ваш профиль", profile)
 
-map_tab, compare_tab, about_tab = st.tabs(
-    ["🗺️ Карта и рейтинг", "📊 Сравнение", "ℹ️ О проекте"]
+page = st.sidebar.radio(
+    "Раздел",
+    ["🗺️ Карта", "🏆 Рейтинг территорий", "📊 Сравнение", "ℹ️ О проекте"],
+    key="main_page",
 )
 
-with map_tab:
-    map_col, ranking_col = st.columns([1.8, 1], gap="large")
+if page == "🗺️ Карта":
+    map_col, details_col = st.columns([1.8, 1], gap="large")
     with map_col:
         st.subheader("Карта жилых ячеек")
         color_map = LinearColormap(
@@ -235,8 +237,7 @@ with map_tab:
             ),
         ).add_to(city_map)
 
-        # Прозрачные маркеры поверх полигонов дают st_folium событие клика
-        # и передают ID ячейки обратно в Streamlit.
+        # Прозрачные маркеры передают ID выбранной ячейки в Streamlit.
         for row in map_data.itertuples():
             centroid = row.geometry.centroid
             folium.CircleMarker(
@@ -258,32 +259,24 @@ with map_tab:
         map_result = st_folium(
             city_map,
             use_container_width=True,
-            height=570,
+            height=650,
             key="real_comfort_map",
             returned_objects=["last_object_clicked_popup"],
         )
 
-        # Popup содержит cell_id маркера, по которому пользователь кликнул.
         clicked_cell = map_result.get("last_object_clicked_popup")
         available_cells = set(data["cell_id"].astype(str))
         if clicked_cell is not None:
             clicked_cell = str(clicked_cell).strip()
             if clicked_cell in available_cells:
                 st.session_state["selected_cell_details"] = clicked_cell
+
         st.caption(
             "Каждый квадрат — ячейка сетки 250 × 250 м. Цвет показывает "
             "персональный индекс комфорта."
         )
 
-    with ranking_col:
-        st.subheader("Рейтинг территорий")
-        st.caption("Первые 15 ячеек по выбранным весам")
-        for position, row in data.head(15).iterrows():
-            with st.container(border=True):
-                st.write(f"**{position + 1}. {row['cell_id']}**")
-                st.progress(max(0.0, min(float(row["comfort_index"]) / 100, 1.0)))
-                st.caption(f"Индекс: {row['comfort_index']:.1f} / 100")
-
+    with details_col:
         st.subheader("Выбранная территория")
         st.caption("Нажмите на квадрат карты или выберите ячейку из списка.")
         selected_cell = st.selectbox(
@@ -308,16 +301,47 @@ with map_tab:
         centroid = selected_row.geometry.centroid
         location_query = f"Магнитогорск {centroid.y:.5f} {centroid.x:.5f} аренда квартиры"
         st.markdown("#### Квартиры поблизости")
-        st.caption("Пока открывается внешний поиск по координатам выбранной ячейки. Встроенные объявления подключим после согласования официального доступа к данным площадок.")
+        st.caption(
+            "Пока открывается внешний поиск по координатам выбранной ячейки. "
+            "Встроенные объявления подключим после согласования официального доступа к данным площадок."
+        )
         cian_query = quote_plus(f"site:cian.ru аренда квартиры {location_query}")
         avito_query = quote_plus(f"site:avito.ru аренда квартиры {location_query}")
         link_col1, link_col2 = st.columns(2)
         with link_col1:
-            st.link_button("Искать на ЦИАН ↗", f"https://www.google.com/search?q={cian_query}", use_container_width=True)
+            st.link_button(
+                "Искать на ЦИАН ↗",
+                f"https://www.google.com/search?q={cian_query}",
+                use_container_width=True,
+            )
         with link_col2:
-            st.link_button("Искать на Авито ↗", f"https://www.google.com/search?q={avito_query}", use_container_width=True)
+            st.link_button(
+                "Искать на Авито ↗",
+                f"https://www.google.com/search?q={avito_query}",
+                use_container_width=True,
+            )
 
-with compare_tab:
+elif page == "🏆 Рейтинг территорий":
+    st.subheader("Рейтинг жилых территорий")
+    st.write(
+        "Все жилые ячейки отсортированы по индексу комфорта с учётом "
+        "выбранных весов и жизненного сценария."
+    )
+    st.caption(f"Показано {min(15, len(data))} лучших ячеек из {len(data)}.")
+    for position, row in data.head(15).iterrows():
+        with st.container(border=True):
+            rank_col, score_col = st.columns([3, 1])
+            with rank_col:
+                st.markdown(f"**{position + 1}. {row['cell_id']}**")
+                st.progress(max(0.0, min(float(row["comfort_index"]) / 100, 1.0)))
+            with score_col:
+                st.metric("Индекс", f"{row['comfort_index']:.1f} / 100")
+            if st.button("Показать на карте", key=f"show_cell_{row['cell_id']}"):
+                st.session_state["selected_cell_details"] = row["cell_id"]
+                st.session_state["main_page"] = "🗺️ Карта"
+                st.rerun()
+
+elif page == "📊 Сравнение":
     st.subheader("Сравнение жилых ячеек")
     selected_cells = st.multiselect(
         "Выберите две или три ячейки",
@@ -363,7 +387,7 @@ with compare_tab:
         )
         st.plotly_chart(fig, use_container_width=True)
 
-with about_tab:
+elif page == "ℹ️ О проекте":
     st.subheader("О проекте")
     st.markdown(
         """
