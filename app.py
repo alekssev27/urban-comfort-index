@@ -376,6 +376,21 @@ if page == "Карта":
 
         cluster_data = build_cell_clusters(filtered_data, max_score_gap=10.0) if not filtered_data.empty else pd.DataFrame()
         cluster_data = assign_cluster_street_names(cluster_data, load_street_segments())
+
+        # Переход из рейтинга к территории: находим её актуальную группу
+        # с учётом включённых на карте фильтров.
+        pending_cell = st.session_state.pop("selected_cell_to_show", None)
+        if pending_cell is not None and not cluster_data.empty:
+            matching = cluster_data[
+                cluster_data["cell_ids"].apply(
+                    lambda ids: str(pending_cell) in ids
+                )
+            ]
+            if not matching.empty:
+                st.session_state["selected_cluster"] = int(
+                    matching.iloc[0]["cluster_id"]
+                )
+
         cluster_labels = {
             int(row.cluster_id): (
                 f"{row.display_name} · {int(row.cell_count)} яч. · "
@@ -553,7 +568,7 @@ elif page == "Рейтинг":
             with score_col:
                 st.metric("Индекс", f"{row['comfort_index']:.1f}")
             if st.button("Открыть на карте", key=f"show_cluster_{row['cluster_id']}"):
-                st.session_state["selected_cluster"] = int(row["cluster_id"])
+                st.session_state["selected_cell_to_show"] = str(row["representative_cell"])
                 st.session_state["main_page"] = "Карта"
                 st.rerun()
 
