@@ -86,57 +86,47 @@ def load_street_segments():
 
 
 def assign_cluster_street_names(clusters, streets):
-    """Привязать группу к реальному названию улицы из OSM."""
+    """Назначить территории название любой подходящей улицы из OSM."""
     if clusters.empty:
         return clusters
 
-    display_names = []
     named_streets = (
         streets[
             streets["name"].notna()
             & streets["name"].astype(str).str.strip().ne("")
         ].copy()
-        if streets is not None and not streets.empty
+        if streets is not None and not streets.empty and "name" in streets.columns
         else None
     )
 
+    display_names = []
     for row in clusters.itertuples():
         display_name = "Улица не определена по OSM"
+
         if named_streets is not None and not named_streets.empty:
             footprint = gpd.GeoSeries(
                 [row.footprint], crs="EPSG:4326"
             ).to_crs("EPSG:32640").iloc[0]
 
-            # В первую очередь берём улицу, которая действительно проходит
-            # через контур группы; название выбирается по длине её участка.
+            # Берём первую попавшуюся именованную улицу внутри контура.
             candidates = named_streets[
                 named_streets.geometry.intersects(footprint)
             ]
-            lengths = {}
-            for street in candidates.itertuples():
-                name = str(street.name).strip()
-                clipped = street.geometry.intersection(footprint)
-                if not clipped.is_empty:
-                    lengths[name] = lengths.get(name, 0.0) + clipped.length
 
-            if lengths:
-                display_name = max(lengths, key=lengths.get)
+            if not candidates.empty:
+                display_name = str(candidates.iloc[0]["name"]).strip()
             else:
-                # Если улица не пересекает контур, ищем ближайшую именованную
-                # улицу. Ограничение 350 м не даёт привязать далёкую улицу.
+                # Если внутри контура улиц нет, показываем ближайшую как ориентир.
                 distances = named_streets.geometry.distance(footprint)
                 nearest_index = distances.idxmin()
-                if float(distances.loc[nearest_index]) <= 350:
-                    display_name = (
-                        f"Рядом с улицей {str(named_streets.loc[nearest_index, 'name']).strip()}"
-                    )
+                nearest_name = str(named_streets.loc[nearest_index, "name"]).strip()
+                display_name = f"Рядом с улицей {nearest_name}"
 
         display_names.append(display_name)
 
     result = clusters.copy()
     result["display_name"] = display_names
     return result
-
 
 def build_cell_clusters(frame, max_score_gap=10.0, max_cells=8):
     """Объединить соседние ячейки с ограничением диапазона оценок и размера группы."""
