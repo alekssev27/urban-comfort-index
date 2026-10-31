@@ -16,7 +16,11 @@ from shapely.geometry import LineString, MultiLineString, mapping
 ROOT = Path(__file__).resolve().parents[1]
 GRID_PATH = ROOT / "data" / "processed" / "grid_cells.geojson"
 OUTPUT_PATH = ROOT / "data" / "raw" / "streets_osm.geojson"
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+OVERPASS_URLS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+]
 
 
 def main():
@@ -36,13 +40,39 @@ def main():
     );
     out geom;
     """
-    response = requests.post(
-        OVERPASS_URL,
-        data={"data": query},
-        timeout=210,
-        headers={"User-Agent": "MestoUrbanComfort/1.0"},
-    )
-    response.raise_for_status()
+    response = None
+    errors = []
+
+    for url in OVERPASS_URLS:
+        for attempt in range(1, 4):
+            try:
+                print(f"Запрос к {url} (попытка {attempt}/3)...")
+                candidate = requests.post(
+                    url,
+                    data={"data": query},
+                    timeout=210,
+                    headers={"User-Agent": "MestoUrbanComfort/1.0"},
+                )
+                candidate.raise_for_status()
+                response = candidate
+                print("Данные успешно получены.")
+                break
+            except requests.RequestException as error:
+                errors.append(f"{url}: {error}")
+                print(f"Сервер недоступен: {error}")
+                if attempt < 3:
+                    time.sleep(2 ** attempt)
+
+        if response is not None:
+            break
+
+    if response is None:
+        details = "\\n".join(errors)
+        raise RuntimeError(
+            "Не удалось получить данные ни с одного Overpass-сервера. "
+            "Попробуйте запустить скрипт позже.\\n" + details
+        )
+
     payload = response.json()
 
     features = []
