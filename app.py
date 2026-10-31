@@ -99,7 +99,7 @@ def build_cell_clusters(frame, max_score_gap=10.0):
                     min_score, max_score = proposed_min, proposed_max
 
         group = projected.iloc[members].copy()
-        center = group.geometry.union_all().centroid
+        center = group.geometry.unary_union.centroid
         clusters.append({
             "cluster_id": len(clusters),
             "cell_ids": group["cell_id"].astype(str).tolist(),
@@ -364,7 +364,6 @@ if page == "🗺️ Карта":
                 options=cluster_options,
                 index=cluster_options.index(default_cluster),
                 format_func=lambda value: cluster_labels[value],
-                key="cluster_selector",
             )
             st.session_state["selected_cluster"] = selected_cluster_id
             selected_group = cluster_data.loc[
