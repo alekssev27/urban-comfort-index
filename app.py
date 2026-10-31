@@ -103,7 +103,7 @@ if not st.session_state.authenticated:
                 )
                 if submitted:
                     email = email.strip()
-                    if not re.fullmatch(r"[^@\\s]+@[^@\\s]+\\.[^@\\s]+", email):
+                    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
                         st.error("Введите корректный адрес электронной почты.")
                     else:
                         st.session_state.user_email = email
