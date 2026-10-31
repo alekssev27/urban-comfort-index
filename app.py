@@ -447,14 +447,6 @@ if page == "Карта":
             st.warning(
                 "Ключ Яндекс Карт не найден в Secrets. Используется OpenStreetMap."
             )
-            folium.TileLayer(
-                tiles="https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-                name="OpenStreetMap",
-                attr="© OpenStreetMap contributors",
-                control=True,
-                show=True,
-                max_zoom=19,
-            ).add_to(city_map)
 
         folium.TileLayer(
             tiles="https://tile.openstreetmap.org/{z}/{x}/{y}.png",
