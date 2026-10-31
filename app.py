@@ -28,9 +28,9 @@ header[data-testid="stHeader"] {background:#fff !important; height:3.25rem; visi
 .top-brand {font-size: 1.65rem; font-weight: 800; letter-spacing: -.06em; color: #20242b; padding-top: .35rem;}
 .top-location {font-size: .82rem; color: #8a9099; margin-top: -.25rem;}
 .profile-pill {display:inline-block; background:#f1f5f2; color:#397b54; border-radius:999px; padding:9px 15px; font-size:.9rem; font-weight:600;}
-.nav-button button {position:relative;background:transparent !important;border:0 !important;border-radius:0 !important;color:#343943 !important;font-weight:600;box-shadow:none !important;padding:.55rem .35rem .8rem !important;}
-.nav-button button:after {content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:#252a33;transform:scaleX(0);transition:transform .18s ease;}
-.nav-button button:hover:after,.nav-active button:after {transform:scaleX(1);}
+div[data-testid="stButton"] button {position:relative;background:transparent !important;border:0 !important;border-radius:0 !important;color:#343943 !important;font-weight:600;box-shadow:none !important;padding:.55rem .35rem .8rem !important;}
+div[data-testid="stButton"] button:after {content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:#252a33;transform:scaleX(0);transition:transform .18s ease;}
+div[data-testid="stButton"] button:hover:after {transform:scaleX(1);}
 h1,h2,h3 {letter-spacing:-.045em; color:#252a33;}
 [data-testid="stMetric"] {background:#fff; border:1px solid #e9edf1; border-radius:18px; padding:16px 18px;}
 [data-testid="stVerticalBlockBorderWrapper"] {border-radius:18px; border-color:#e9edf1;}
@@ -444,6 +444,7 @@ if page == "Карта":
                 )
 
 elif page == "Рейтинг":
+    cluster_data = build_cell_clusters(filtered_data, max_score_gap=10.0) if not filtered_data.empty else pd.DataFrame()
     st.subheader("Рейтинг территорий")
     st.caption("Лучшие жилые ячейки по выбранным приоритетам")
     for position, row in filtered_data.head(15).iterrows():
