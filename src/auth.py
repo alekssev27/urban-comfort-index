@@ -72,3 +72,37 @@ def authenticate_user(email: str, password: str) -> dict | None:
             "profile": user.preferences.profile if user.preferences else "Студент",
             "created_at": user.created_at,
         }
+
+
+def get_user_account(user_id: int) -> dict | None:
+    """Load editable account data without exposing the password hash."""
+    with session_scope() as session:
+        user = session.get(User, user_id)
+        if user is None:
+            return None
+        return {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "profile": user.preferences.profile if user.preferences else "Студент",
+            "created_at": user.created_at,
+        }
+
+
+def update_user_account(user_id: int, name: str, profile: str) -> None:
+    """Update the account name and life-scenario preference."""
+    name = name.strip()
+    if not name or len(name) > 80:
+        raise RegistrationError("Имя должно содержать от 1 до 80 символов.")
+    if profile not in {"Студент", "Пара", "Семья с детьми"}:
+        raise RegistrationError("Выберите доступный жизненный сценарий.")
+
+    with session_scope() as session:
+        user = session.get(User, user_id)
+        if user is None:
+            raise RegistrationError("Пользователь не найден.")
+        user.name = name
+        if user.preferences is None:
+            user.preferences = UserPreferences(profile=profile)
+        else:
+            user.preferences.profile = profile
