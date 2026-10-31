@@ -200,12 +200,22 @@ if page == "🗺️ Карта":
         city_map = folium.Map(
             location=[53.42, 58.98],
             zoom_start=12,
-            tiles="CartoDB positron",
+            tiles=None,
             control_scale=True,
         )
         folium.TileLayer(
+            tiles="https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+            name="Светлая карта",
+            attr="© OpenStreetMap contributors © CARTO",
+            control=True,
+            show=True,
+        ).add_to(city_map)
+        folium.TileLayer(
             tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-            name="Спутник", attr="Tiles © Esri", control=True, show=False,
+            name="Спутник",
+            attr="Tiles © Esri",
+            control=True,
+            show=False,
         ).add_to(city_map)
 
         map_data = data[
