@@ -71,7 +71,7 @@ def score_color(value, color_map):
 
 
 @st.cache_data(show_spinner=False, ttl=3600)
-def load_street_segments():
+def load_street_segments(streets_signature=None):
     """Загрузить локальный слой улиц, подготовленный отдельным OSM-скриптом."""
     path = Path("data/raw/streets_osm.geojson")
     if not path.exists():
@@ -202,6 +202,39 @@ def build_cell_clusters(frame, max_score_gap=10.0, max_cells=8):
     return pd.DataFrame(clusters)
 
 
+def _file_signature(path):
+    """Короткий ключ для сброса кэша при обновлении исходного файла."""
+    file_path = Path(path)
+    if not file_path.exists():
+        return (str(file_path), None, None)
+    stat = file_path.stat()
+    return (str(file_path), stat.st_mtime_ns, stat.st_size)
+
+
+@st.cache_data(show_spinner=False)
+def get_profile_scores(profile_name, data_signature):
+    """Рассчитать оценки один раз на профиль и версию исходных данных."""
+    raw = load_real_scores()
+    return prepare_scores(raw, PROFILES[profile_name])
+
+
+@st.cache_data(show_spinner=False)
+def get_profile_clusters(profile_name, data_signature, streets_signature, threshold_values):
+    """Общий набор кластеров для карты, рейтинга и сравнения."""
+    weights_data = get_profile_scores(profile_name, data_signature)
+    filtered = weights_data
+    for key, minimum_score in threshold_values:
+        if minimum_score > 0:
+            filtered = filtered[
+                filtered[f"score_{key}"].notna()
+                & (filtered[f"score_{key}"] >= minimum_score)
+            ].copy()
+
+    clusters = build_cell_clusters(filtered, max_score_gap=10.0)
+    streets = load_street_segments(streets_signature)
+    return assign_cluster_street_names(clusters, streets)
+
+
 # ---------- Начальное состояние ----------
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
@@ -321,36 +354,33 @@ if page == "Карта":
                 )
 
 weights = PROFILES[profile]
-try:
-    raw_data = load_real_scores()
-except (FileNotFoundError, ValueError, OSError) as error:
-    st.error(f"Не удалось загрузить реальные геоданные: {error}")
-    st.info(
-        "Проверьте наличие data/processed/grid_cells.geojson и "
-        "data/processed/residential_comfort_scores.csv."
-    )
-    st.stop()
+data_signature = (
+    _file_signature("data/processed/grid_cells.geojson"),
+    _file_signature("data/processed/residential_comfort_scores.csv"),
+)
+streets_signature = _file_signature("data/raw/streets_osm.geojson")
 
 try:
-    data = prepare_scores(raw_data, weights)
+    data = get_profile_scores(profile, data_signature)
+except (FileNotFoundError, ValueError, OSError) as error:
+    st.error("Не удалось загрузить данные городской среды. Попробуйте обновить страницу.")
+    import logging
+    logging.exception("Ошибка загрузки исходных геоданных: %s", error)
+    st.stop()
 except Exception:
     import logging
-    logging.exception("Ошибка при подготовке оценок жилых территорий")
-    st.error("Не удалось подготовить данные для отображения. Попробуйте обновить страницу. Если проблема повторится, сообщите команде Mesto.")
+    logging.exception("Ошибка подготовки оценок жилых территорий")
+    st.error("Не удалось подготовить данные для отображения. Попробуйте обновить страницу.")
     st.stop()
 
 if data.empty:
     st.warning("Пока нет данных о жилых территориях для отображения.")
     st.stop()
 
-filtered_data = data.copy()
-if page == "Карта":
-    for criterion, minimum_score in thresholds.items():
-        if minimum_score > 0:
-            filtered_data = filtered_data[
-                filtered_data[f"score_{criterion}"].notna()
-                & (filtered_data[f"score_{criterion}"] >= minimum_score)
-            ].copy()
+threshold_values = tuple(
+    (key, thresholds[key] if page == "Карта" else 0)
+    for key in CRITERIA
+)
 
 # Страницы приложения
 if page == "Карта":
@@ -390,8 +420,9 @@ if page == "Карта":
         ).add_to(city_map)
 
         try:
-            cluster_data = build_cell_clusters(filtered_data, max_score_gap=10.0) if not filtered_data.empty else pd.DataFrame()
-            cluster_data = assign_cluster_street_names(cluster_data, load_street_segments())
+            cluster_data = get_profile_clusters(
+                profile, data_signature, streets_signature, threshold_values
+            )
         except Exception:
             import logging
             logging.exception("Ошибка при построении кластеров карты")
@@ -574,8 +605,8 @@ if page == "Карта":
             )
 
 elif page == "Рейтинг":
-    ranking = assign_cluster_street_names(
-        build_cell_clusters(data, max_score_gap=10.0), load_street_segments()
+    ranking = get_profile_clusters(
+        profile, data_signature, streets_signature, threshold_values
     ).sort_values("comfort_index", ascending=False).reset_index(drop=True)
     st.subheader("Рейтинг территорий")
     st.caption("Лучшие жилые территории по выбранным приоритетам")
@@ -594,8 +625,8 @@ elif page == "Рейтинг":
                 st.rerun()
 
 elif page == "Сравнение":
-    comparison_clusters = assign_cluster_street_names(
-        build_cell_clusters(data, max_score_gap=10.0), load_street_segments()
+    comparison_clusters = get_profile_clusters(
+        profile, data_signature, streets_signature, threshold_values
     ).sort_values("comfort_index", ascending=False).reset_index(drop=True)
     st.subheader("Сравнение территорий")
     cluster_ids = comparison_clusters["cluster_id"].astype(int).tolist()
