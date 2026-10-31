@@ -234,17 +234,42 @@ with map_tab:
                 sticky=False,
             ),
         ).add_to(city_map)
+
+        # Прозрачные маркеры поверх полигонов дают st_folium событие клика
+        # и передают ID ячейки обратно в Streamlit.
+        for row in map_data.itertuples():
+            centroid = row.geometry.centroid
+            folium.CircleMarker(
+                location=[centroid.y, centroid.x],
+                radius=8,
+                stroke=False,
+                fill=True,
+                fill_color="#111827",
+                fill_opacity=0.01,
+                popup=folium.Popup(str(row.cell_id), max_width=300),
+                tooltip=f"Выбрать ячейку {row.cell_id}",
+            ).add_to(city_map)
+
         color_map.add_to(city_map)
         folium.LayerControl().add_to(city_map)
 
         bounds = map_data.total_bounds
         city_map.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
-        st_folium(
+        map_result = st_folium(
             city_map,
             use_container_width=True,
             height=570,
             key="real_comfort_map",
+            returned_objects=["last_object_clicked_popup"],
         )
+
+        # Popup содержит cell_id маркера, по которому пользователь кликнул.
+        clicked_cell = map_result.get("last_object_clicked_popup")
+        available_cells = set(data["cell_id"].astype(str))
+        if clicked_cell is not None:
+            clicked_cell = str(clicked_cell).strip()
+            if clicked_cell in available_cells:
+                st.session_state["selected_cell_details"] = clicked_cell
         st.caption(
             "Каждый квадрат — ячейка сетки 250 × 250 м. Цвет показывает "
             "персональный индекс комфорта."
@@ -260,7 +285,12 @@ with map_tab:
                 st.caption(f"Индекс: {row['comfort_index']:.1f} / 100")
 
         st.subheader("Выбранная территория")
-        selected_cell = st.selectbox("Выберите ячейку по идентификатору", data["cell_id"].tolist(), key="selected_cell_details")
+        st.caption("Нажмите на квадрат карты или выберите ячейку из списка.")
+        selected_cell = st.selectbox(
+            "Выберите ячейку по идентификатору",
+            data["cell_id"].tolist(),
+            key="selected_cell_details",
+        )
         selected_row = data.loc[data["cell_id"] == selected_cell].iloc[0]
         st.subheader("Показатели ячейки")
         st.metric("Индекс комфорта", f"{selected_row['comfort_index']:.1f} / 100")
