@@ -20,6 +20,7 @@ htmlcov/
 # Секреты
 .env
 .env.*
+.streamlit/secrets.toml
 
 # Локальные данные, которые не следует публиковать
 data/raw/*
