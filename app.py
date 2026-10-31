@@ -411,8 +411,8 @@ if page == "Карта":
                 folium.GeoJson(
                     feature,
                     style_function=lambda f, color=row.color: {
-                        "color": "#20242b", "weight": 1,
-                        "fillColor": color, "fillOpacity": 0.01,
+                        "color": color, "weight": 0, "opacity": 0,
+                        "fillColor": color, "fillOpacity": 0.001,
                     },
                     highlight_function=lambda f, color=row.color: {
                         "color": "#20242b", "weight": 3,
