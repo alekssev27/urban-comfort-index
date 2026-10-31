@@ -20,10 +20,13 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-.block-container {padding-top: 1.6rem; padding-bottom: 2rem; max-width: 1600px;}
-[data-testid="stMetric"] {background: #ffffff; border: 1px solid #e8edf2; padding: 14px 16px; border-radius: 14px;}
-[data-testid="stTabs"] button {font-weight: 600;}
-[data-testid="stSidebar"] {background: #fbfcfd;}
+.block-container {padding: 1.1rem 2rem 2rem; max-width: 1800px;}
+[data-testid="stSidebar"] {background: #fafafa; border-right: 1px solid #edf0f2;}
+[data-testid="stMetric"] {background: #fff; border: 1px solid #edf0f2; padding: 12px 14px; border-radius: 16px;}
+[data-testid="stRadio"] > div {gap: 0.35rem;}
+h1, h2, h3 {letter-spacing: -0.035em;}
+div[data-testid="stVerticalBlockBorderWrapper"] {border-radius: 18px;}
+.stButton button, .stLinkButton a {border-radius: 12px;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -49,6 +52,74 @@ def score_color(value, color_map):
     if pd.isna(value):
         return "#9ca3af"
     return color_map(float(value))
+
+
+def build_cell_clusters(frame, max_score_gap=10.0):
+    """Объединить только соседние ячейки, диапазон индексов которых <= max_score_gap."""
+    projected = frame.to_crs("EPSG:32640").reset_index(drop=True)
+    geometries = projected.geometry
+    scores = projected["comfort_index"].astype(float).tolist()
+    spatial_index = projected.sindex
+    visited = set()
+    clusters = []
+
+    for seed in sorted(range(len(projected)), key=lambda i: scores[i], reverse=True):
+        if seed in visited or pd.isna(scores[seed]):
+            continue
+
+        members = [seed]
+        visited.add(seed)
+        pending = [seed]
+        min_score = max_score = scores[seed]
+
+        while pending:
+            current = pending.pop()
+            try:
+                candidates = spatial_index.query(
+                    geometries.iloc[current], predicate="touches"
+                )
+            except TypeError:
+                candidates = spatial_index.intersection(
+                    geometries.iloc[current].bounds
+                )
+
+            for candidate in candidates:
+                candidate = int(candidate)
+                if candidate in visited or pd.isna(scores[candidate]):
+                    continue
+                if not geometries.iloc[current].touches(geometries.iloc[candidate]):
+                    continue
+
+                proposed_min = min(min_score, scores[candidate])
+                proposed_max = max(max_score, scores[candidate])
+                if proposed_max - proposed_min <= max_score_gap:
+                    visited.add(candidate)
+                    members.append(candidate)
+                    pending.append(candidate)
+                    min_score, max_score = proposed_min, proposed_max
+
+        group = projected.iloc[members].copy()
+        center = group.geometry.union_all().centroid
+        clusters.append({
+            "cluster_id": len(clusters),
+            "cell_ids": group["cell_id"].astype(str).tolist(),
+            "representative_cell": group.loc[group["comfort_index"].idxmax(), "cell_id"],
+            "cell_count": len(group),
+            "comfort_index": float(group["comfort_index"].mean()),
+            "score_min": float(group["comfort_index"].min()),
+            "score_max": float(group["comfort_index"].max()),
+            "geometry": center,
+            **{
+                f"score_{key}": group[f"score_{key}"].mean()
+                for key in CRITERIA
+            },
+            **{
+                f"nearest_distance_{key}_m": group[f"nearest_distance_{key}_m"].mean()
+                for key in CRITERIA
+            },
+        })
+
+    return pd.DataFrame(clusters)
 
 
 # ---------- Начальное состояние ----------
@@ -170,41 +241,34 @@ if data.empty:
     st.error("После объединения геоданных не осталось жилых ячеек.")
     st.stop()
 
-st.title("Mesto")
-st.write(f"Персональный анализ жилых территорий для сценария **«{profile}»**.")
-st.info(
-    "На карте показаны только ячейки, в которых обнаружены жилые здания в OSM. "
-    "Доступность рассчитана по прямолинейному расстоянию; данные OSM могут быть неполными."
-)
-
-best = data.iloc[0]
-col1, col2, col3 = st.columns(3)
-col1.metric("Жилых ячеек в рейтинге", f"{len(data):,}".replace(",", " "))
-col2.metric("Лучшая оценка", f"{best['comfort_index']:.1f} / 100")
-col3.metric("Ваш профиль", profile)
-
+# Основная рабочая область
 page = st.sidebar.radio(
     "Раздел",
-    ["🗺️ Карта", "🏆 Рейтинг территорий", "📊 Сравнение", "ℹ️ О проекте"],
+    ["🗺️ Карта", "🏆 Рейтинг", "📊 Сравнение", "ℹ️ О проекте"],
     key="main_page",
 )
 
+header_col, profile_col = st.columns([4, 1])
+with header_col:
+    st.markdown("# Mesto")
+    st.caption("Найдите территорию, которая подходит вашему образу жизни")
+with profile_col:
+    st.markdown(f"**{profile}**")
+    st.caption("Магнитогорск")
+
 if page == "🗺️ Карта":
-    map_col, details_col = st.columns([1.8, 1], gap="large")
+    map_col, details_col = st.columns([1.65, 1], gap="medium")
     with map_col:
-        st.subheader("Карта жилых ячеек")
+        st.subheader("Карта жилых территорий")
         color_map = LinearColormap(
-            colors=["#dc2626", "#facc15", "#16a34a"], vmin=0, vmax=100
+            colors=["#e76f51", "#f4c95d", "#65b978"], vmin=0, vmax=100
         )
-        color_map.caption = "Индекс комфорта"
         city_map = folium.Map(
             location=[53.42, 58.98],
             zoom_start=12,
             tiles=None,
             control_scale=True,
         )
-        # Скрываем только флаг в контроле атрибуции; обязательная подпись
-        # OpenStreetMap contributors остаётся видимой.
         city_map.get_root().header.add_child(folium.Element("""
         <style>
         .leaflet-control-attribution .leaflet-attribution-flag {
@@ -214,7 +278,7 @@ if page == "🗺️ Карта":
         """))
         folium.TileLayer(
             tiles="https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-            name="Обычная карта",
+            name="Карта",
             attr="© OpenStreetMap contributors",
             control=True,
             show=True,
@@ -228,136 +292,155 @@ if page == "🗺️ Карта":
             show=False,
         ).add_to(city_map)
 
-        map_data = data[
-            ["cell_id", "comfort_index", *[f"score_{key}" for key in CRITERIA], "geometry"]
-        ].copy()
-        map_data["comfort_index"] = map_data["comfort_index"].round(1)
+        cluster_data = build_cell_clusters(data, max_score_gap=10.0)
+        cluster_labels = {
+            int(row.cluster_id): (
+                f"Группа {int(row.cluster_id) + 1} · {int(row.cell_count)} яч. · "
+                f"индекс {row.comfort_index:.1f}"
+            )
+            for row in cluster_data.itertuples()
+        }
+        if not cluster_data.empty:
+            cluster_data["color"] = cluster_data["comfort_index"].apply(
+                lambda value: score_color(value, color_map)
+            )
+            for row in cluster_data.itertuples():
+                point = row.geometry
+                radius = min(22, 7 + 2.2 * (max(1, row.cell_count) ** 0.5))
+                popup_text = (
+                    f"{cluster_labels[int(row.cluster_id)]}<br>"
+                    f"Диапазон индексов: {row.score_min:.1f}–{row.score_max:.1f}<br>"
+                    f"Нажмите, чтобы посмотреть показатели"
+                )
+                folium.CircleMarker(
+                    location=[point.y, point.x],
+                    radius=radius,
+                    color="#ffffff",
+                    weight=1.5,
+                    fill=True,
+                    fill_color=row.color,
+                    fill_opacity=0.88,
+                    popup=folium.Popup(popup_text, max_width=280),
+                    tooltip=cluster_labels[int(row.cluster_id)],
+                ).add_to(city_map)
 
-        def style_function(feature):
-            value = feature["properties"].get("comfort_index")
-            return {
-                "fillColor": score_color(value, color_map),
-                "color": "#374151",
-                "weight": 0.35,
-                "fillOpacity": 0.72,
-            }
-
-        folium.GeoJson(
-            data=map_data.to_json(),
-            name="Индекс комфорта",
-            style_function=style_function,
-            highlight_function=lambda feature: {
-                "weight": 2, "color": "#111827", "fillOpacity": 0.9
-            },
-            tooltip=folium.GeoJsonTooltip(
-                fields=["cell_id", "comfort_index"],
-                aliases=["ID ячейки", "Индекс комфорта"],
-                localize=True,
-                sticky=False,
-            ),
-        ).add_to(city_map)
-
-        # Прозрачные маркеры передают ID выбранной ячейки в Streamlit.
-        for row in map_data.itertuples():
-            centroid = row.geometry.centroid
-            folium.CircleMarker(
-                location=[centroid.y, centroid.x],
-                radius=8,
-                stroke=False,
-                fill=True,
-                fill_color="#111827",
-                fill_opacity=0.01,
-                popup=folium.Popup(str(row.cell_id), max_width=300),
-                tooltip=f"Выбрать ячейку {row.cell_id}",
-            ).add_to(city_map)
-
+        color_map.caption = "Средний индекс комфорта"
         color_map.add_to(city_map)
-        folium.LayerControl().add_to(city_map)
+        folium.LayerControl(collapsed=True).add_to(city_map)
 
-        bounds = map_data.total_bounds
+        bounds = data.total_bounds
         city_map.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
         map_result = st_folium(
             city_map,
             use_container_width=True,
-            height=650,
-            key="real_comfort_map",
+            height=680,
+            key="clustered_comfort_map",
             returned_objects=["last_object_clicked_popup"],
         )
 
-        clicked_cell = map_result.get("last_object_clicked_popup")
-        available_cells = set(data["cell_id"].astype(str))
-        if clicked_cell is not None:
-            clicked_cell = str(clicked_cell).strip()
-            if clicked_cell in available_cells:
-                st.session_state["selected_cell_details"] = clicked_cell
+        clicked_popup = map_result.get("last_object_clicked_popup")
+        if clicked_popup:
+            for cluster_id, label in cluster_labels.items():
+                if label in str(clicked_popup):
+                    st.session_state["selected_cluster"] = cluster_id
+                    break
 
         st.caption(
-            "Каждый квадрат — ячейка сетки 250 × 250 м. Цвет показывает "
-            "персональный индекс комфорта."
+            "Круг — одна ячейка или группа соседних ячеек. "
+            "В одну группу попадают только ячейки с диапазоном индексов не более 10 баллов."
         )
 
     with details_col:
-        st.subheader("Выбранная территория")
-        st.caption("Нажмите на квадрат карты или выберите ячейку из списка.")
-        selected_cell = st.selectbox(
-            "Выберите ячейку по идентификатору",
-            data["cell_id"].tolist(),
-            key="selected_cell_details",
-        )
-        selected_row = data.loc[data["cell_id"] == selected_cell].iloc[0]
-        st.subheader("Показатели ячейки")
-        st.metric("Индекс комфорта", f"{selected_row['comfort_index']:.1f} / 100")
-        criterion_values = pd.DataFrame(
-            {
+        st.subheader("Территория")
+        if cluster_data.empty:
+            st.warning("Не удалось сформировать группы ячеек.")
+        else:
+            cluster_options = list(cluster_labels)
+            default_cluster = st.session_state.get("selected_cluster", cluster_options[0])
+            if default_cluster not in cluster_options:
+                default_cluster = cluster_options[0]
+            selected_cluster_id = st.selectbox(
+                "Выберите круг на карте или группу",
+                options=cluster_options,
+                index=cluster_options.index(default_cluster),
+                format_func=lambda value: cluster_labels[value],
+                key="cluster_selector",
+            )
+            st.session_state["selected_cluster"] = selected_cluster_id
+            selected_group = cluster_data.loc[
+                cluster_data["cluster_id"] == selected_cluster_id
+            ].iloc[0]
+
+            st.markdown("### Индекс комфорта")
+            st.metric(
+                "Средняя оценка группы",
+                f"{selected_group['comfort_index']:.1f} / 100",
+            )
+            st.caption(
+                f"{int(selected_group['cell_count'])} ячеек · "
+                f"разброс индексов {selected_group['score_min']:.1f}–"
+                f"{selected_group['score_max']:.1f}"
+            )
+
+            criterion_values = pd.DataFrame({
                 "Критерий": [CRITERIA[key] for key in CRITERIA],
-                "Оценка": [selected_row[f"score_{key}"] for key in CRITERIA],
-                "Расстояние до объекта, м": [
-                    selected_row[f"nearest_distance_{key}_m"] for key in CRITERIA
+                "Оценка": [selected_group[f"score_{key}"] for key in CRITERIA],
+                "Среднее расстояние, м": [
+                    selected_group[f"nearest_distance_{key}_m"] for key in CRITERIA
                 ],
-            }
-        )
-        st.dataframe(criterion_values, hide_index=True, use_container_width=True)
-
-        centroid = selected_row.geometry.centroid
-        location_query = f"Магнитогорск {centroid.y:.5f} {centroid.x:.5f} аренда квартиры"
-        st.markdown("#### Квартиры поблизости")
-        st.caption(
-            "Пока открывается внешний поиск по координатам выбранной ячейки. "
-            "Встроенные объявления подключим после согласования официального доступа к данным площадок."
-        )
-        cian_query = quote_plus(f"site:cian.ru аренда квартиры {location_query}")
-        avito_query = quote_plus(f"site:avito.ru аренда квартиры {location_query}")
-        link_col1, link_col2 = st.columns(2)
-        with link_col1:
-            st.link_button(
-                "Искать на ЦИАН ↗",
-                f"https://www.google.com/search?q={cian_query}",
-                use_container_width=True,
-            )
-        with link_col2:
-            st.link_button(
-                "Искать на Авито ↗",
-                f"https://www.google.com/search?q={avito_query}",
+            })
+            st.dataframe(
+                criterion_values.round(1),
+                hide_index=True,
                 use_container_width=True,
             )
 
-elif page == "🏆 Рейтинг территорий":
-    st.subheader("Рейтинг жилых территорий")
-    st.write(
-        "Все жилые ячейки отсортированы по индексу комфорта с учётом "
-        "выбранных весов и жизненного сценария."
-    )
-    st.caption(f"Показано {min(15, len(data))} лучших ячеек из {len(data)}.")
+            point = selected_group["geometry"]
+            location_query = (
+                f"Магнитогорск {point.y:.5f} {point.x:.5f} аренда квартиры"
+            )
+            st.markdown("### Квартиры поблизости")
+            st.caption(
+                "Поиск откроется на внешней площадке. Встроенные объявления "
+                "подключим после согласования официального доступа."
+            )
+            cian_query = quote_plus(f"site:cian.ru аренда квартиры {location_query}")
+            avito_query = quote_plus(f"site:avito.ru аренда квартиры {location_query}")
+            link_col1, link_col2 = st.columns(2)
+            with link_col1:
+                st.link_button(
+                    "ЦИАН ↗",
+                    f"https://www.google.com/search?q={cian_query}",
+                    use_container_width=True,
+                )
+            with link_col2:
+                st.link_button(
+                    "Авито ↗",
+                    f"https://www.google.com/search?q={avito_query}",
+                    use_container_width=True,
+                )
+
+elif page == "🏆 Рейтинг":
+    st.subheader("Рейтинг территорий")
+    st.caption("Лучшие жилые ячейки по выбранным приоритетам")
     for position, row in data.head(15).iterrows():
         with st.container(border=True):
-            rank_col, score_col = st.columns([3, 1])
+            rank_col, score_col = st.columns([4, 1])
             with rank_col:
                 st.markdown(f"**{position + 1}. {row['cell_id']}**")
                 st.progress(max(0.0, min(float(row["comfort_index"]) / 100, 1.0)))
             with score_col:
-                st.metric("Индекс", f"{row['comfort_index']:.1f} / 100")
-            if st.button("Показать на карте", key=f"show_cell_{row['cell_id']}"):
-                st.session_state["selected_cell_details"] = row["cell_id"]
+                st.metric("Индекс", f"{row['comfort_index']:.1f}")
+            if st.button("Открыть на карте", key=f"show_cell_{row['cell_id']}"):
+                matching = cluster_data[
+                    cluster_data["cell_ids"].apply(
+                        lambda ids: str(row["cell_id"]) in ids
+                    )
+                ]
+                if not matching.empty:
+                    st.session_state["selected_cluster"] = int(
+                        matching.iloc[0]["cluster_id"]
+                    )
                 st.session_state["main_page"] = "🗺️ Карта"
                 st.rerun()
 
@@ -381,8 +464,7 @@ elif page == "📊 Сравнение":
                 **{f"score_{key}": label for key, label in CRITERIA.items()},
             }
         )
-        st.dataframe(display, hide_index=True, use_container_width=True)
-
+        st.dataframe(display.round(1), hide_index=True, use_container_width=True)
         chart_data = comparison.melt(
             id_vars=["cell_id"],
             value_vars=[f"score_{key}" for key in CRITERIA],
@@ -393,17 +475,9 @@ elif page == "📊 Сравнение":
             {f"score_{key}": label for key, label in CRITERIA.items()}
         )
         fig = px.bar(
-            chart_data,
-            x="criterion",
-            y="score",
-            color="cell_id",
-            barmode="group",
-            labels={
-                "criterion": "Критерий",
-                "score": "Оценка",
-                "cell_id": "Ячейка",
-            },
-            range_y=[0, 100],
+            chart_data, x="criterion", y="score", color="cell_id",
+            barmode="group", range_y=[0, 100],
+            labels={"criterion": "Критерий", "score": "Оценка", "cell_id": "Ячейка"},
         )
         st.plotly_chart(fig, use_container_width=True)
 
@@ -411,32 +485,23 @@ elif page == "ℹ️ О проекте":
     st.subheader("О проекте")
     st.markdown(
         """
-        Mesto помогает подбирать жильё и сравнивать жилые территории по доступности городской
-        инфраструктуры с учётом жизненного сценария.
+        Mesto помогает сравнивать жилые территории по доступности городской инфраструктуры
+        с учётом жизненного сценария.
 
-        **Как рассчитывается индекс:**
-        1. Для каждой категории инфраструктуры рассчитывается оценка от 0 до 100.
-        2. Оценки объединяются с весами выбранного сценария.
-        3. Если по критерию нет наблюдения, его вес исключается, а остальные веса
-           нормализуются.
-        4. Жилые ячейки ранжируются по итоговому индексу.
+        **Как работает индекс:** оценки шести категорий объединяются с весами профиля.
+        Если по критерию нет наблюдения, его вес исключается, а остальные веса нормализуются.
 
-        **Ограничения текущей версии:**
-        - в рейтинг попадают только ячейки, где OSM обнаружил жилые здания;
-        - объекты OSM могут быть неполными или устаревшими;
-        - доступность пока измеряется прямолинейным расстоянием от центра ячейки,
-          а не временем пешего маршрута;
-        - пороги P90 являются статистическими порогами выборки, а не нормативами.
+        **Ограничения:** OSM может быть неполным; доступность пока измеряется прямолинейным
+        расстоянием от центра ячейки, а не временем пешего маршрута. Порог P90 —
+        статистический, а не нормативный.
         """
     )
-    st.subheader("Критерии и веса")
+    st.subheader("Приоритеты профиля")
     st.dataframe(
-        pd.DataFrame(
-            {
-                "Критерий": [CRITERIA[key] for key in CRITERIA],
-                "Вес": [weights[key] for key in CRITERIA],
-            }
-        ),
+        pd.DataFrame({
+            "Критерий": [CRITERIA[key] for key in CRITERIA],
+            "Вес": [weights[key] for key in CRITERIA],
+        }),
         hide_index=True,
         use_container_width=True,
     )
