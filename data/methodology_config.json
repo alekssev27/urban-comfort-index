@@ -1,0 +1,54 @@
+{
+  "method_version": "0.1-draft",
+  "city": "Магнитогорск",
+  "analysis_unit": "microdistrict",
+  "accessibility_mode": "walking_network",
+  "criteria": {
+    "transport": {
+      "label": "Транспорт",
+      "categories": [
+        "public_transport"
+      ]
+    },
+    "education": {
+      "label": "Образование",
+      "categories": [
+        "school",
+        "kindergarten",
+        "university"
+      ]
+    },
+    "medical": {
+      "label": "Медицина",
+      "categories": [
+        "hospital",
+        "clinic"
+      ]
+    },
+    "green": {
+      "label": "Зелёные зоны",
+      "categories": [
+        "park",
+        "square",
+        "green_space"
+      ]
+    },
+    "daily": {
+      "label": "Повседневная инфраструктура",
+      "categories": [
+        "shop",
+        "supermarket",
+        "pharmacy"
+      ]
+    },
+    "leisure": {
+      "label": "Досуг",
+      "categories": [
+        "sports",
+        "culture",
+        "recreation"
+      ]
+    }
+  },
+  "provisional_note": "Черновик: категории и пороги необходимо согласовать."
+}
