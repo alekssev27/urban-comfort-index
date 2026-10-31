@@ -49,7 +49,7 @@ class Favorite(Base):
     comfort_index: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    user: Mapped[User] = relationship(back_populates="user", cascade="all, delete-orphan")
+    user: Mapped[User] = relationship(back_populates="favorites")
 
 
 def _database_url() -> str:
