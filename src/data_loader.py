@@ -3,6 +3,7 @@ from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
+import streamlit as st
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / "data"
@@ -19,6 +20,7 @@ CRITERIA = {
 }
 
 
+@st.cache_data(show_spinner=False, ttl=3600)
 def load_real_scores(
     grid_path: Path = GRID_PATH,
     scores_path: Path = SCORES_PATH,
