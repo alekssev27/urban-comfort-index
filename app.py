@@ -18,6 +18,15 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+st.markdown("""
+<style>
+.block-container {padding-top: 1.6rem; padding-bottom: 2rem; max-width: 1600px;}
+[data-testid="stMetric"] {background: #ffffff; border: 1px solid #e8edf2; padding: 14px 16px; border-radius: 14px;}
+[data-testid="stTabs"] button {font-weight: 600;}
+[data-testid="stSidebar"] {background: #fbfcfd;}
+</style>
+""", unsafe_allow_html=True)
+
 PROFILES = {
     "Студент": {"transport": 25, "education": 25, "medical": 10, "green": 10, "daily": 20, "leisure": 10},
     "Пара": {"transport": 20, "education": 5, "medical": 10, "green": 20, "daily": 20, "leisure": 25},
