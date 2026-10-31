@@ -53,6 +53,7 @@ PROFILES = {
 }
 
 
+@st.cache_data(show_spinner=False)
 def prepare_scores(raw_data, weights):
     """Подготовить оценки критериев и рассчитать индекс с текущими весами."""
     data = raw_data.copy()
@@ -70,6 +71,7 @@ def score_color(value, color_map):
     return color_map(float(value))
 
 
+@st.cache_data(show_spinner=False, ttl=3600)
 def load_street_segments():
     """Загрузить локальный слой улиц, подготовленный отдельным OSM-скриптом."""
     path = Path("data/raw/streets_osm.geojson")
@@ -84,42 +86,61 @@ def load_street_segments():
         return None
 
 
+@st.cache_data(show_spinner=False)
 def assign_cluster_street_names(clusters, streets):
-    """Выбрать улицу с наибольшей длиной внутри каждой группы."""
+    """Привязать группу к реальному названию улицы из OSM."""
     if clusters.empty:
         return clusters
-    used_names = {}
+
     display_names = []
+    named_streets = (
+        streets[
+            streets["name"].notna()
+            & streets["name"].astype(str).str.strip().ne("")
+        ].copy()
+        if streets is not None and not streets.empty
+        else None
+    )
+
     for row in clusters.itertuples():
-        best_name = None
-        if streets is not None and not streets.empty:
+        display_name = "Улица не определена по OSM"
+        if named_streets is not None and not named_streets.empty:
             footprint = gpd.GeoSeries(
                 [row.footprint], crs="EPSG:4326"
             ).to_crs("EPSG:32640").iloc[0]
-            candidates = streets[streets.geometry.intersects(footprint)]
+
+            # В первую очередь берём улицу, которая действительно проходит
+            # через контур группы; название выбирается по длине её участка.
+            candidates = named_streets[
+                named_streets.geometry.intersects(footprint)
+            ]
             lengths = {}
             for street in candidates.itertuples():
-                name = getattr(street, "name", None)
-                if not name or pd.isna(name):
-                    continue
+                name = str(street.name).strip()
                 clipped = street.geometry.intersection(footprint)
                 if not clipped.is_empty:
                     lengths[name] = lengths.get(name, 0.0) + clipped.length
-            if lengths:
-                best_name = max(lengths, key=lengths.get)
 
-        best_name = best_name or "Жилая территория"
-        used_names[best_name] = used_names.get(best_name, 0) + 1
-        suffix = used_names[best_name]
-        display_names.append(
-            best_name if suffix == 1 else f"{best_name} {suffix}"
-        )
+            if lengths:
+                display_name = max(lengths, key=lengths.get)
+            else:
+                # Если улица не пересекает контур, ищем ближайшую именованную
+                # улицу. Ограничение 350 м не даёт привязать далёкую улицу.
+                distances = named_streets.geometry.distance(footprint)
+                nearest_index = distances.idxmin()
+                if float(distances.loc[nearest_index]) <= 350:
+                    display_name = (
+                        f"Рядом с улицей {str(named_streets.loc[nearest_index, 'name']).strip()}"
+                    )
+
+        display_names.append(display_name)
 
     result = clusters.copy()
     result["display_name"] = display_names
     return result
 
 
+@st.cache_data(show_spinner=False)
 def build_cell_clusters(frame, max_score_gap=10.0, max_cells=8):
     """Объединить соседние ячейки с ограничением диапазона оценок и размера группы."""
     projected = frame.to_crs("EPSG:32640").reset_index(drop=True)
