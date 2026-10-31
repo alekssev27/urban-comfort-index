@@ -49,13 +49,27 @@ class Favorite(Base):
     comfort_index: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    user: Mapped[User] = relationship(back_populates="favorites")
+    user: Mapped[User] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
 def _database_url() -> str:
+    """Read the database URL from environment variables or Streamlit secrets."""
     url = os.getenv("DATABASE_URL", "").strip()
+
     if not url:
-        raise RuntimeError("Не задан DATABASE_URL. Добавьте строку подключения PostgreSQL в переменные окружения или секреты хостинга.")
+        try:
+            import streamlit as st
+
+            url = str(st.secrets.get("DATABASE_URL", "")).strip()
+        except Exception:
+            url = ""
+
+    if not url:
+        raise RuntimeError(
+            "Не задан DATABASE_URL. Добавьте строку подключения PostgreSQL "
+            "в переменные окружения или Streamlit Secrets."
+        )
+
     if url.startswith("postgres://"):
         url = "postgresql+psycopg://" + url.removeprefix("postgres://")
     elif url.startswith("postgresql://"):
@@ -75,11 +89,6 @@ def get_engine():
     return _engine
 
 
-def init_database() -> None:
-    """Create missing tables. Use migrations for future schema changes."""
-    Base.metadata.create_all(get_engine())
-
-
 @contextmanager
 def session_scope():
     get_engine()
@@ -92,3 +101,8 @@ def session_scope():
         raise
     finally:
         session.close()
+
+
+def init_database() -> None:
+    """Create missing tables. Use migrations for future schema changes."""
+    Base.metadata.create_all(get_engine())
