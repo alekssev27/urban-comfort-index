@@ -1,4 +1,5 @@
 import re
+from urllib.parse import quote_plus
 
 import folium
 import pandas as pd
@@ -11,7 +12,7 @@ from src.data_loader import CRITERIA, load_real_scores
 from src.scoring import calculate_index
 
 st.set_page_config(
-    page_title="Индекс комфорта",
+    page_title="Mesto",
     page_icon="🏙️",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -65,7 +66,7 @@ if not st.session_state.authenticated:
     )
     left, right = st.columns([1.15, 0.85], gap="large", vertical_alignment="center")
     with left:
-        st.markdown("### 🏙️ Индекс комфорта")
+        st.markdown("### Mesto")
         st.markdown(
             '<div class="hero-title">Найдите территорию,<br>которая подходит именно вам.</div>',
             unsafe_allow_html=True,
@@ -116,7 +117,7 @@ if not st.session_state.authenticated:
 
 # ---------- Основное приложение ----------
 profile = st.session_state.user_profile
-st.sidebar.title("🏙️ Индекс комфорта")
+st.sidebar.title("Mesto")
 st.sidebar.caption("Магнитогорск")
 st.sidebar.success(f"Ваш профиль: {profile}")
 st.sidebar.caption(st.session_state.user_email)
@@ -160,7 +161,7 @@ if data.empty:
     st.error("После объединения геоданных не осталось жилых ячеек.")
     st.stop()
 
-st.title("Карта комфорта городской среды")
+st.title("Mesto")
 st.write(f"Персональный анализ жилых территорий для сценария **«{profile}»**.")
 st.info(
     "На карте показаны только ячейки, в которых обнаружены жилые здания в OSM. "
@@ -188,9 +189,14 @@ with map_tab:
         city_map = folium.Map(
             location=[53.42, 58.98],
             zoom_start=12,
-            tiles="OpenStreetMap",
+            tiles="CartoDB positron",
             control_scale=True,
         )
+        folium.TileLayer(
+            tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+            name="Спутник", attr="Tiles © Esri", control=True, show=False,
+        ).add_to(city_map)
+        folium.LayerControl(position="topright", collapsed=True).add_to(city_map)
 
         map_data = data[
             ["cell_id", "comfort_index", *[f"score_{key}" for key in CRITERIA], "geometry"]
@@ -245,7 +251,8 @@ with map_tab:
                 st.progress(max(0.0, min(float(row["comfort_index"]) / 100, 1.0)))
                 st.caption(f"Индекс: {row['comfort_index']:.1f} / 100")
 
-        selected_cell = st.selectbox("Подробнее о ячейке", data["cell_id"].tolist())
+        st.subheader("Выбранная территория")
+        selected_cell = st.selectbox("Выберите ячейку по идентификатору", data["cell_id"].tolist(), key="selected_cell_details")
         selected_row = data.loc[data["cell_id"] == selected_cell].iloc[0]
         st.subheader("Показатели ячейки")
         st.metric("Индекс комфорта", f"{selected_row['comfort_index']:.1f} / 100")
@@ -259,6 +266,18 @@ with map_tab:
             }
         )
         st.dataframe(criterion_values, hide_index=True, use_container_width=True)
+
+        centroid = selected_row.geometry.centroid
+        location_query = f"Магнитогорск {centroid.y:.5f} {centroid.x:.5f} аренда квартиры"
+        st.markdown("#### Квартиры поблизости")
+        st.caption("Пока открывается внешний поиск по координатам выбранной ячейки. Встроенные объявления подключим после согласования официального доступа к данным площадок.")
+        cian_query = quote_plus(f"site:cian.ru аренда квартиры {location_query}")
+        avito_query = quote_plus(f"site:avito.ru аренда квартиры {location_query}")
+        link_col1, link_col2 = st.columns(2)
+        with link_col1:
+            st.link_button("Искать на ЦИАН ↗", f"https://www.google.com/search?q={cian_query}", use_container_width=True)
+        with link_col2:
+            st.link_button("Искать на Авито ↗", f"https://www.google.com/search?q={avito_query}", use_container_width=True)
 
 with compare_tab:
     st.subheader("Сравнение жилых ячеек")
@@ -310,7 +329,7 @@ with about_tab:
     st.subheader("О проекте")
     st.markdown(
         """
-        Сервис помогает сравнивать жилые территории по доступности городской
+        Mesto помогает подбирать жильё и сравнивать жилые территории по доступности городской
         инфраструктуры с учётом жизненного сценария.
 
         **Как рассчитывается индекс:**
