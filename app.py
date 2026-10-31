@@ -2,6 +2,7 @@ import re
 from urllib.parse import quote_plus
 
 import folium
+import geopandas as gpd
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -99,7 +100,11 @@ def build_cell_clusters(frame, max_score_gap=10.0):
                     min_score, max_score = proposed_min, proposed_max
 
         group = projected.iloc[members].copy()
-        center = group.geometry.unary_union.centroid
+        center_projected = group.geometry.unary_union.centroid
+        # Folium принимает координаты только в WGS84 (широта/долгота).
+        center = gpd.GeoSeries(
+            [center_projected], crs=projected.crs
+        ).to_crs("EPSG:4326").iloc[0]
         clusters.append({
             "cluster_id": len(clusters),
             "cell_ids": group["cell_id"].astype(str).tolist(),
