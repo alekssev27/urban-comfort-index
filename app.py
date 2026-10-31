@@ -203,6 +203,15 @@ if page == "🗺️ Карта":
             tiles=None,
             control_scale=True,
         )
+        # Скрываем только флаг в контроле атрибуции; обязательная подпись
+        # OpenStreetMap contributors остаётся видимой.
+        city_map.get_root().header.add_child(folium.Element("""
+        <style>
+        .leaflet-control-attribution .leaflet-attribution-flag {
+            display: none !important;
+        }
+        </style>
+        """))
         folium.TileLayer(
             tiles="https://tile.openstreetmap.org/{z}/{x}/{y}.png",
             name="Обычная карта",
