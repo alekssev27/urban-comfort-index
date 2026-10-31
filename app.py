@@ -451,21 +451,17 @@ if page == "Карта":
             for row in cluster_data.itertuples()
         }
         if not cluster_data.empty:
-            cluster_data["color"] = cluster_data["comfort_index"].map(
+            cluster_data["color"] = cluster_data["comfort_index"].apply(
                 lambda value: score_color(value, color_map)
             )
-            polygon_features = []
-
             for row in cluster_data.itertuples():
-                cluster_id = int(row.cluster_id)
                 point = row.geometry
+                radius = min(22, 7 + 2.2 * (max(1, row.cell_count) ** 0.5))
                 popup_text = (
-                    f"{cluster_labels[cluster_id]}<br>"
+                    f"{cluster_labels[int(row.cluster_id)]}<br>"
                     f"Диапазон индексов: {row.score_min:.1f}–{row.score_max:.1f}<br>"
                     f"Нажмите, чтобы посмотреть показатели"
                 )
-
-                # Точки остаются отдельными интерактивными маркерами.
                 folium.CircleMarker(
                     location=[point.y, point.x],
                     radius=9,
@@ -475,42 +471,28 @@ if page == "Карта":
                     fill_color=row.color,
                     fill_opacity=0.88,
                     popup=folium.Popup(popup_text, max_width=280),
-                    tooltip=cluster_labels[cluster_id],
+                    tooltip=cluster_labels[int(row.cluster_id)],
                 ).add_to(city_map)
 
-                # Все контуры собираются в один GeoJSON-слой вместо
-                # создания отдельного Folium-слоя для каждой территории.
-                polygon_features.append({
+                feature = {
                     "type": "Feature",
-                    "properties": {
-                        "cluster_label": cluster_labels[cluster_id],
-                        "cluster_color": row.color,
-                    },
+                    "properties": {"cluster_label": cluster_labels[int(row.cluster_id)]},
                     "geometry": mapping(row.footprint),
-                })
-
-            if polygon_features:
+                }
                 folium.GeoJson(
-                    {"type": "FeatureCollection", "features": polygon_features},
-                    name="Контуры территорий",
-                    style_function=lambda feature: {
-                        "color": feature["properties"]["cluster_color"],
-                        "weight": 0,
-                        "opacity": 0,
-                        "fillColor": feature["properties"]["cluster_color"],
-                        "fillOpacity": 0.001,
+                    feature,
+                    style_function=lambda f, color=row.color: {
+                        "color": color, "weight": 0, "opacity": 0,
+                        "fillColor": color, "fillOpacity": 0.001,
                     },
-                    highlight_function=lambda feature: {
-                        "color": "#20242b",
-                        "weight": 3,
-                        "fillColor": feature["properties"]["cluster_color"],
-                        "fillOpacity": 0.38,
+                    highlight_function=lambda f, color=row.color: {
+                        "color": "#20242b", "weight": 3,
+                        "fillColor": color, "fillOpacity": 0.38,
                     },
                     tooltip=folium.GeoJsonTooltip(
-                        fields=["cluster_label"],
-                        aliases=["Территория:"],
-                        sticky=False,
+                        fields=["cluster_label"], aliases=["Территория:"], sticky=False
                     ),
+                    popup=folium.Popup(popup_text, max_width=280),
                 ).add_to(city_map)
 
         color_map.caption = "Средний индекс комфорта"
