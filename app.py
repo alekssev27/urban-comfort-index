@@ -299,13 +299,18 @@ with account_col:
 
 st.divider()
 
-with st.expander("Фильтры по инфраструктуре", expanded=False):
-    st.caption("Укажите минимальную оценку по критериям. На карте останутся только ячейки, которые соответствуют всем заданным порогам.")
-    filter_columns = st.columns(3)
-    thresholds = {}
-    for index, (key, label) in enumerate(CRITERIA.items()):
-        with filter_columns[index % 3]:
-            thresholds[key] = st.slider(f"{label} — минимум", min_value=0, max_value=100, value=0, step=5, key=f"filter_{key}")
+page = st.session_state["main_page"]
+thresholds = {key: 0 for key in CRITERIA}
+if page == "Карта":
+    with st.expander("Фильтры по инфраструктуре", expanded=False):
+        st.caption("Укажите минимальную оценку по критериям. На карте останутся только ячейки, которые соответствуют всем заданным порогам.")
+        filter_columns = st.columns(3)
+        for index, (key, label) in enumerate(CRITERIA.items()):
+            with filter_columns[index % 3]:
+                thresholds[key] = st.slider(
+                    f"{label} — минимум", min_value=0, max_value=100,
+                    value=0, step=5, key=f"filter_{key}"
+                )
 
 weights = PROFILES[profile]
 try:
@@ -324,14 +329,13 @@ if data.empty:
     st.stop()
 
 filtered_data = data.copy()
-for criterion, minimum_score in thresholds.items():
-    if minimum_score > 0:
-        filtered_data = filtered_data[
-            filtered_data[f"score_{criterion}"].notna()
-            & (filtered_data[f"score_{criterion}"] >= minimum_score)
-        ].copy()
-
-page = st.session_state["main_page"]
+if page == "Карта":
+    for criterion, minimum_score in thresholds.items():
+        if minimum_score > 0:
+            filtered_data = filtered_data[
+                filtered_data[f"score_{criterion}"].notna()
+                & (filtered_data[f"score_{criterion}"] >= minimum_score)
+            ].copy()
 
 # Страницы приложения
 if page == "Карта":
@@ -435,15 +439,31 @@ if page == "Карта":
             use_container_width=True,
             height=720,
             key="clustered_comfort_map",
-            returned_objects=["last_object_clicked_popup"],
+            returned_objects=["last_object_clicked", "last_object_clicked_popup"],
         )
 
+        # Сначала определяем выбранную группу по содержимому popup.
         clicked_popup = map_result.get("last_object_clicked_popup")
+        selected_from_popup = False
         if clicked_popup:
             for cluster_id, label in cluster_labels.items():
                 if label in str(clicked_popup):
                     st.session_state["selected_cluster"] = cluster_id
+                    selected_from_popup = True
                     break
+
+        # Если popup не вернулся (например, при клике по полигону),
+        # выбираем ближайшую к точке клика группу.
+        clicked_point = map_result.get("last_object_clicked")
+        if not selected_from_popup and clicked_point and not cluster_data.empty:
+            click_lat = clicked_point.get("lat")
+            click_lon = clicked_point.get("lng")
+            if click_lat is not None and click_lon is not None:
+                distances = cluster_data["geometry"].apply(
+                    lambda point: (point.y - click_lat) ** 2
+                    + (point.x - click_lon) ** 2
+                )
+                st.session_state["selected_cluster"] = int(distances.idxmin())
 
         st.caption(
             "Круг — одна ячейка или группа соседних ячеек. "
@@ -518,53 +538,61 @@ if page == "Карта":
             )
 
 elif page == "Рейтинг":
-    cluster_data = build_cell_clusters(filtered_data, max_score_gap=10.0) if not filtered_data.empty else pd.DataFrame()
+    ranking = assign_cluster_street_names(
+        build_cell_clusters(data, max_score_gap=10.0), load_street_segments()
+    ).sort_values("comfort_index", ascending=False).reset_index(drop=True)
     st.subheader("Рейтинг территорий")
-    st.caption("Лучшие жилые ячейки по выбранным приоритетам")
-    for position, row in filtered_data.head(15).iterrows():
+    st.caption("Лучшие жилые территории по выбранным приоритетам")
+    for position, row in ranking.head(15).iterrows():
         with st.container(border=True):
             rank_col, score_col = st.columns([4, 1])
             with rank_col:
-                st.markdown(f"**{position + 1}. {row['cell_id']}**")
+                st.markdown(f"**{position + 1}. {row['display_name']}**")
+                st.caption(f"{int(row['cell_count'])} ячеек")
                 st.progress(max(0.0, min(float(row["comfort_index"]) / 100, 1.0)))
             with score_col:
                 st.metric("Индекс", f"{row['comfort_index']:.1f}")
-            if st.button("Открыть на карте", key=f"show_cell_{row['cell_id']}"):
-                matching = cluster_data[
-                    cluster_data["cell_ids"].apply(
-                        lambda ids: str(row["cell_id"]) in ids
-                    )
-                ]
-                if not matching.empty:
-                    st.session_state["selected_cluster"] = int(
-                        matching.iloc[0]["cluster_id"]
-                    )
+            if st.button("Открыть на карте", key=f"show_cluster_{row['cluster_id']}"):
+                st.session_state["selected_cluster"] = int(row["cluster_id"])
                 st.session_state["main_page"] = "Карта"
                 st.rerun()
 
 elif page == "Сравнение":
-    st.subheader("Сравнение жилых ячеек")
-    selected_cells = st.multiselect(
-        "Выберите две или три ячейки",
-        filtered_data["cell_id"].tolist(),
-        default=filtered_data["cell_id"].tolist()[:2],
+    comparison_clusters = assign_cluster_street_names(
+        build_cell_clusters(data, max_score_gap=10.0), load_street_segments()
+    ).sort_values("comfort_index", ascending=False).reset_index(drop=True)
+    st.subheader("Сравнение территорий")
+    cluster_ids = comparison_clusters["cluster_id"].astype(int).tolist()
+    selected_clusters = st.multiselect(
+        "Выберите две или три территории",
+        options=cluster_ids,
+        default=cluster_ids[:2],
+        format_func=lambda value: comparison_clusters.loc[
+            comparison_clusters["cluster_id"] == value, "display_name"
+        ].iloc[0],
         max_selections=3,
     )
-    if selected_cells:
-        comparison = filtered_data[filtered_data["cell_id"].isin(selected_cells)].copy()
+    if selected_clusters:
+        comparison = comparison_clusters[
+            comparison_clusters["cluster_id"].isin(selected_clusters)
+        ].copy()
+        comparison["Территория"] = comparison.apply(
+            lambda row: f"{row['display_name']} · {int(row['cell_count'])} яч.",
+            axis=1,
+        )
         display_columns = [
-            "cell_id", "comfort_index", *[f"score_{key}" for key in CRITERIA]
+            "Территория", "comfort_index",
+            *[f"score_{key}" for key in CRITERIA]
         ]
         display = comparison[display_columns].rename(
             columns={
-                "cell_id": "Ячейка",
                 "comfort_index": "Индекс комфорта",
                 **{f"score_{key}": label for key, label in CRITERIA.items()},
             }
         )
         st.dataframe(display.round(1), hide_index=True, use_container_width=True)
         chart_data = comparison.melt(
-            id_vars=["cell_id"],
+            id_vars=["Территория"],
             value_vars=[f"score_{key}" for key in CRITERIA],
             var_name="criterion",
             value_name="score",
@@ -573,9 +601,9 @@ elif page == "Сравнение":
             {f"score_{key}": label for key, label in CRITERIA.items()}
         )
         fig = px.bar(
-            chart_data, x="criterion", y="score", color="cell_id",
+            chart_data, x="criterion", y="score", color="Территория",
             barmode="group", range_y=[0, 100],
-            labels={"criterion": "Критерий", "score": "Оценка", "cell_id": "Ячейка"},
+            labels={"criterion": "Критерий", "score": "Оценка", "Территория": "Территория"},
         )
         st.plotly_chart(fig, use_container_width=True)
 
