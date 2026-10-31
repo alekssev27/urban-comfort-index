@@ -120,8 +120,8 @@ def assign_cluster_street_names(clusters, streets):
     return result
 
 
-def build_cell_clusters(frame, max_score_gap=10.0):
-    """Объединить только соседние ячейки, диапазон индексов которых <= max_score_gap."""
+def build_cell_clusters(frame, max_score_gap=10.0, max_cells=8):
+    """Объединить соседние ячейки с ограничением диапазона оценок и размера группы."""
     projected = frame.to_crs("EPSG:32640").reset_index(drop=True)
     geometries = projected.geometry
     scores = projected["comfort_index"].astype(float).tolist()
@@ -138,7 +138,7 @@ def build_cell_clusters(frame, max_score_gap=10.0):
         pending = [seed]
         min_score = max_score = scores[seed]
 
-        while pending:
+        while pending and len(members) < max_cells:
             current = pending.pop()
             try:
                 candidates = spatial_index.query(
@@ -447,7 +447,7 @@ if page == "Карта":
 
         st.caption(
             "Круг — одна ячейка или группа соседних ячеек. "
-            "В одну группу попадают только ячейки с диапазоном индексов не более 10 баллов."
+            "В одну группу попадает не более 8 соседних ячеек с диапазоном индексов не более 10 баллов."
         )
 
     with details_col:
