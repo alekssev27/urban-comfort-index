@@ -28,8 +28,27 @@ def distance_score(distance_m, threshold_m):
 
 
 def calculate_index(row, weights):
-    """Weighted score; missing criteria are excluded and remaining weights renormalized."""
-    available = [(key, weights[key]) for key in CRITERIA if key in weights and key in row and weights[key] > 0 and pd.notna(row[key])]
+    """Weighted score; missing criteria are excluded and remaining weights renormalized.
+
+    A deliberate all-zero weight selection returns 0.0 for compatibility with
+    the app's zero-weight validation. If weights are positive but all scores
+    are missing, return NaN because no index can be supported by observations.
+    """
+    configured_weight = sum(
+        weights.get(key, 0) for key in CRITERIA
+        if weights.get(key, 0) > 0
+    )
+    if configured_weight == 0:
+        return 0.0
+
+    available = [
+        (key, weights[key])
+        for key in CRITERIA
+        if key in weights
+        and key in row
+        and weights[key] > 0
+        and pd.notna(row[key])
+    ]
     total_weight = sum(weight for _, weight in available)
     if total_weight == 0:
         return float("nan")
