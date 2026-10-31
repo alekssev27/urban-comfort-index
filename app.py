@@ -499,7 +499,12 @@ if page == "Карта":
         color_map.add_to(city_map)
         folium.LayerControl(collapsed=True).add_to(city_map)
 
-        bounds = (filtered_data if not filtered_data.empty else data).total_bounds
+        if not cluster_data.empty:
+            bounds = gpd.GeoSeries(
+                cluster_data["footprint"], crs="EPSG:4326"
+            ).total_bounds
+        else:
+            bounds = data.total_bounds
         city_map.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
         map_result = st_folium(
             city_map,
