@@ -24,13 +24,13 @@ st.markdown("""
 #MainMenu, footer {visibility: hidden;}
 [data-testid="stSidebar"] {display: none;}
 .block-container {max-width: 1900px; padding: 1.25rem 2.2rem 2rem;}
-header[data-testid="stHeader"] {background: rgba(255,255,255,.92);}
+header[data-testid="stHeader"] {background:#fff !important; height:3.25rem; visibility:visible;}
 .top-brand {font-size: 1.65rem; font-weight: 800; letter-spacing: -.06em; color: #20242b; padding-top: .35rem;}
 .top-location {font-size: .82rem; color: #8a9099; margin-top: -.25rem;}
 .profile-pill {display:inline-block; background:#f1f5f2; color:#397b54; border-radius:999px; padding:9px 15px; font-size:.9rem; font-weight:600;}
-div[role="radiogroup"] {gap: .45rem; justify-content: center;}
-div[role="radiogroup"] label {border-radius:999px !important; padding:.45rem 1rem !important; border:1px solid transparent;}
-div[role="radiogroup"] label[data-checked="true"] {background:#f1f3f5 !important; border-color:#e2e6ea !important;}
+.nav-button button {position:relative;background:transparent !important;border:0 !important;border-radius:0 !important;color:#343943 !important;font-weight:600;box-shadow:none !important;padding:.55rem .35rem .8rem !important;}
+.nav-button button:after {content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:#252a33;transform:scaleX(0);transition:transform .18s ease;}
+.nav-button button:hover:after,.nav-active button:after {transform:scaleX(1);}
 h1,h2,h3 {letter-spacing:-.045em; color:#252a33;}
 [data-testid="stMetric"] {background:#fff; border:1px solid #e9edf1; border-radius:18px; padding:16px 18px;}
 [data-testid="stVerticalBlockBorderWrapper"] {border-radius:18px; border-color:#e9edf1;}
@@ -216,18 +216,23 @@ if not st.session_state.authenticated:
 # ---------- Основное приложение ----------
 profile = st.session_state.user_profile
 
-# Верхняя навигация вместо постоянной боковой панели
-brand_col, nav_col, account_col = st.columns([1.15, 2.8, 1.25], vertical_alignment="center")
+if "main_page" not in st.session_state:
+    st.session_state["main_page"] = "Карта"
+
+brand_col, nav_col, account_col = st.columns([1.15, 3.2, 1.35], vertical_alignment="center")
 with brand_col:
     st.markdown('<div class="top-brand">Mesto</div><div class="top-location">Магнитогорск</div>', unsafe_allow_html=True)
 with nav_col:
-    page = st.radio(
-        "Навигация",
-        ["Карта", "Рейтинг", "Сравнение", "О проекте"],
-        horizontal=True,
-        label_visibility="collapsed",
-        key="main_page",
-    )
+    nav_items = ["Карта", "Рейтинг", "Сравнение", "О проекте"]
+    nav_cols = st.columns(4, gap="small")
+    for nav_index, nav_item in enumerate(nav_items):
+        with nav_cols[nav_index]:
+            active_class = "nav-active" if st.session_state["main_page"] == nav_item else ""
+            st.markdown(f'<div class="nav-button {active_class}">', unsafe_allow_html=True)
+            if st.button(nav_item, key=f"nav_{nav_index}", use_container_width=True):
+                st.session_state["main_page"] = nav_item
+                st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
 with account_col:
     account_left, account_right = st.columns([3, 1])
     with account_left:
@@ -236,29 +241,19 @@ with account_col:
         if st.button("Выйти", key="logout_top", help=st.session_state.user_email):
             st.session_state.authenticated = False
             st.session_state.user_email = ""
-            for key in CRITERIA:
-                st.session_state.pop(f"weight_{key}", None)
             st.rerun()
 
 st.divider()
 
-with st.expander("Настроить приоритеты поиска", expanded=False):
-    st.caption("Измените важность критериев — карта и рейтинг пересчитаются автоматически.")
-    weight_columns = st.columns(3)
-    weights = {}
+with st.expander("Фильтры по инфраструктуре", expanded=False):
+    st.caption("Укажите минимальную оценку по критериям. На карте останутся только ячейки, которые соответствуют всем заданным порогам.")
+    filter_columns = st.columns(3)
+    thresholds = {}
     for index, (key, label) in enumerate(CRITERIA.items()):
-        with weight_columns[index % 3]:
-            weights[key] = st.slider(
-                label,
-                min_value=0,
-                max_value=100,
-                value=PROFILES[profile][key],
-                key=f"weight_{key}",
-            )
+        with filter_columns[index % 3]:
+            thresholds[key] = st.slider(f"{label} — минимум", min_value=0, max_value=100, value=0, step=5, key=f"filter_{key}")
 
-if sum(weights.values()) == 0:
-    st.warning("Укажите ненулевой вес хотя бы одного критерия.")
-
+weights = PROFILES[profile]
 try:
     raw_data = load_real_scores()
 except (FileNotFoundError, ValueError, OSError) as error:
@@ -273,6 +268,16 @@ data = prepare_scores(raw_data, weights)
 if data.empty:
     st.error("После объединения геоданных не осталось жилых ячеек.")
     st.stop()
+
+filtered_data = data.copy()
+for criterion, minimum_score in thresholds.items():
+    if minimum_score > 0:
+        filtered_data = filtered_data[
+            filtered_data[f"score_{criterion}"].notna()
+            & (filtered_data[f"score_{criterion}"] >= minimum_score)
+        ].copy()
+
+page = st.session_state["main_page"]
 
 # Страницы приложения
 if page == "Карта":
@@ -311,7 +316,7 @@ if page == "Карта":
             show=False,
         ).add_to(city_map)
 
-        cluster_data = build_cell_clusters(data, max_score_gap=10.0)
+        cluster_data = build_cell_clusters(filtered_data, max_score_gap=10.0) if not filtered_data.empty else pd.DataFrame()
         cluster_labels = {
             int(row.cluster_id): (
                 f"Группа {int(row.cluster_id) + 1} · {int(row.cell_count)} яч. · "
@@ -347,7 +352,7 @@ if page == "Карта":
         color_map.add_to(city_map)
         folium.LayerControl(collapsed=True).add_to(city_map)
 
-        bounds = data.total_bounds
+        bounds = (filtered_data if not filtered_data.empty else data).total_bounds
         city_map.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
         map_result = st_folium(
             city_map,
@@ -372,7 +377,7 @@ if page == "Карта":
     with details_col:
         st.subheader("Территория")
         if cluster_data.empty:
-            st.warning("Не удалось сформировать группы ячеек.")
+            st.warning("По заданным порогам ячейки не найдены. Уменьшите минимальные оценки фильтров.")
         else:
             cluster_options = list(cluster_labels)
             default_cluster = st.session_state.get("selected_cluster", cluster_options[0])
@@ -441,7 +446,7 @@ if page == "Карта":
 elif page == "Рейтинг":
     st.subheader("Рейтинг территорий")
     st.caption("Лучшие жилые ячейки по выбранным приоритетам")
-    for position, row in data.head(15).iterrows():
+    for position, row in filtered_data.head(15).iterrows():
         with st.container(border=True):
             rank_col, score_col = st.columns([4, 1])
             with rank_col:
@@ -459,19 +464,19 @@ elif page == "Рейтинг":
                     st.session_state["selected_cluster"] = int(
                         matching.iloc[0]["cluster_id"]
                     )
-                st.session_state["main_page"] = "🗺️ Карта"
+                st.session_state["main_page"] = "Карта"
                 st.rerun()
 
 elif page == "Сравнение":
     st.subheader("Сравнение жилых ячеек")
     selected_cells = st.multiselect(
         "Выберите две или три ячейки",
-        data["cell_id"].tolist(),
-        default=data["cell_id"].tolist()[:2],
+        filtered_data["cell_id"].tolist(),
+        default=filtered_data["cell_id"].tolist()[:2],
         max_selections=3,
     )
     if selected_cells:
-        comparison = data[data["cell_id"].isin(selected_cells)].copy()
+        comparison = filtered_data[filtered_data["cell_id"].isin(selected_cells)].copy()
         display_columns = [
             "cell_id", "comfort_index", *[f"score_{key}" for key in CRITERIA]
         ]
