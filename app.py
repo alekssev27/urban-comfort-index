@@ -21,13 +21,26 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-.block-container {padding: 1.1rem 2rem 2rem; max-width: 1800px;}
-[data-testid="stSidebar"] {background: #fafafa; border-right: 1px solid #edf0f2;}
-[data-testid="stMetric"] {background: #fff; border: 1px solid #edf0f2; padding: 12px 14px; border-radius: 16px;}
-[data-testid="stRadio"] > div {gap: 0.35rem;}
-h1, h2, h3 {letter-spacing: -0.035em;}
-div[data-testid="stVerticalBlockBorderWrapper"] {border-radius: 18px;}
-.stButton button, .stLinkButton a {border-radius: 12px;}
+#MainMenu, footer {visibility: hidden;}
+[data-testid="stSidebar"] {display: none;}
+.block-container {max-width: 1900px; padding: 1.25rem 2.2rem 2rem;}
+header[data-testid="stHeader"] {background: rgba(255,255,255,.92);}
+.top-brand {font-size: 1.65rem; font-weight: 800; letter-spacing: -.06em; color: #20242b; padding-top: .35rem;}
+.top-location {font-size: .82rem; color: #8a9099; margin-top: -.25rem;}
+.profile-pill {display:inline-block; background:#f1f5f2; color:#397b54; border-radius:999px; padding:9px 15px; font-size:.9rem; font-weight:600;}
+div[role="radiogroup"] {gap: .45rem; justify-content: center;}
+div[role="radiogroup"] label {border-radius:999px !important; padding:.45rem 1rem !important; border:1px solid transparent;}
+div[role="radiogroup"] label[data-checked="true"] {background:#f1f3f5 !important; border-color:#e2e6ea !important;}
+h1,h2,h3 {letter-spacing:-.045em; color:#252a33;}
+[data-testid="stMetric"] {background:#fff; border:1px solid #e9edf1; border-radius:18px; padding:16px 18px;}
+[data-testid="stVerticalBlockBorderWrapper"] {border-radius:18px; border-color:#e9edf1;}
+.stButton button, .stLinkButton a {border-radius:12px; min-height:2.65rem;}
+[data-testid="stDataFrame"] {border:1px solid #edf0f2; border-radius:12px; overflow:hidden;}
+.map-heading {font-size:1.45rem; font-weight:750; letter-spacing:-.04em; margin-bottom:.65rem;}
+.muted-copy {color:#858b94; font-size:.92rem;}
+@media (max-width: 900px) {
+ .block-container {padding:1rem .8rem;}
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -202,34 +215,49 @@ if not st.session_state.authenticated:
 
 # ---------- Основное приложение ----------
 profile = st.session_state.user_profile
-st.sidebar.title("Mesto")
-st.sidebar.caption("Магнитогорск")
-st.sidebar.success(f"Ваш профиль: {profile}")
-st.sidebar.caption(st.session_state.user_email)
 
-if st.sidebar.button("Выйти", use_container_width=True):
-    st.session_state.authenticated = False
-    st.session_state.user_email = ""
-    for key in CRITERIA:
-        st.session_state.pop(f"weight_{key}", None)
-    st.rerun()
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("Настройка приоритетов")
-st.sidebar.caption("Изменяйте веса критериев, чтобы настроить рейтинг под свои предпочтения.")
-
-weights = {}
-for key, label in CRITERIA.items():
-    weights[key] = st.sidebar.slider(
-        label,
-        min_value=0,
-        max_value=100,
-        value=PROFILES[profile][key],
-        key=f"weight_{key}",
+# Верхняя навигация вместо постоянной боковой панели
+brand_col, nav_col, account_col = st.columns([1.15, 2.8, 1.25], vertical_alignment="center")
+with brand_col:
+    st.markdown('<div class="top-brand">Mesto</div><div class="top-location">Магнитогорск</div>', unsafe_allow_html=True)
+with nav_col:
+    page = st.radio(
+        "Навигация",
+        ["Карта", "Рейтинг", "Сравнение", "О проекте"],
+        horizontal=True,
+        label_visibility="collapsed",
+        key="main_page",
     )
+with account_col:
+    account_left, account_right = st.columns([3, 1])
+    with account_left:
+        st.markdown(f'<div class="profile-pill">{profile}</div>', unsafe_allow_html=True)
+    with account_right:
+        if st.button("Выйти", key="logout_top", help=st.session_state.user_email):
+            st.session_state.authenticated = False
+            st.session_state.user_email = ""
+            for key in CRITERIA:
+                st.session_state.pop(f"weight_{key}", None)
+            st.rerun()
+
+st.divider()
+
+with st.expander("Настроить приоритеты поиска", expanded=False):
+    st.caption("Измените важность критериев — карта и рейтинг пересчитаются автоматически.")
+    weight_columns = st.columns(3)
+    weights = {}
+    for index, (key, label) in enumerate(CRITERIA.items()):
+        with weight_columns[index % 3]:
+            weights[key] = st.slider(
+                label,
+                min_value=0,
+                max_value=100,
+                value=PROFILES[profile][key],
+                key=f"weight_{key}",
+            )
 
 if sum(weights.values()) == 0:
-    st.sidebar.warning("Укажите ненулевой вес хотя бы одного критерия.")
+    st.warning("Укажите ненулевой вес хотя бы одного критерия.")
 
 try:
     raw_data = load_real_scores()
@@ -246,25 +274,11 @@ if data.empty:
     st.error("После объединения геоданных не осталось жилых ячеек.")
     st.stop()
 
-# Основная рабочая область
-page = st.sidebar.radio(
-    "Раздел",
-    ["🗺️ Карта", "🏆 Рейтинг", "📊 Сравнение", "ℹ️ О проекте"],
-    key="main_page",
-)
-
-header_col, profile_col = st.columns([4, 1])
-with header_col:
-    st.markdown("# Mesto")
-    st.caption("Найдите территорию, которая подходит вашему образу жизни")
-with profile_col:
-    st.markdown(f"**{profile}**")
-    st.caption("Магнитогорск")
-
-if page == "🗺️ Карта":
+# Страницы приложения
+if page == "Карта":
     map_col, details_col = st.columns([1.65, 1], gap="medium")
     with map_col:
-        st.subheader("Карта жилых территорий")
+        st.markdown('<div class="map-heading">Карта жилых территорий</div>', unsafe_allow_html=True)
         color_map = LinearColormap(
             colors=["#e76f51", "#f4c95d", "#65b978"], vmin=0, vmax=100
         )
@@ -338,7 +352,7 @@ if page == "🗺️ Карта":
         map_result = st_folium(
             city_map,
             use_container_width=True,
-            height=680,
+            height=720,
             key="clustered_comfort_map",
             returned_objects=["last_object_clicked_popup"],
         )
@@ -424,7 +438,7 @@ if page == "🗺️ Карта":
                     use_container_width=True,
                 )
 
-elif page == "🏆 Рейтинг":
+elif page == "Рейтинг":
     st.subheader("Рейтинг территорий")
     st.caption("Лучшие жилые ячейки по выбранным приоритетам")
     for position, row in data.head(15).iterrows():
@@ -448,7 +462,7 @@ elif page == "🏆 Рейтинг":
                 st.session_state["main_page"] = "🗺️ Карта"
                 st.rerun()
 
-elif page == "📊 Сравнение":
+elif page == "Сравнение":
     st.subheader("Сравнение жилых ячеек")
     selected_cells = st.multiselect(
         "Выберите две или три ячейки",
@@ -485,7 +499,7 @@ elif page == "📊 Сравнение":
         )
         st.plotly_chart(fig, use_container_width=True)
 
-elif page == "ℹ️ О проекте":
+elif page == "О проекте":
     st.subheader("О проекте")
     st.markdown(
         """
