@@ -1,4 +1,5 @@
 import re
+from shapely.geometry import mapping
 from urllib.parse import quote_plus
 
 import folium
@@ -113,11 +114,12 @@ def build_cell_clusters(frame, max_score_gap=10.0):
                     min_score, max_score = proposed_min, proposed_max
 
         group = projected.iloc[members].copy()
-        center_projected = group.geometry.unary_union.centroid
-        # Folium принимает координаты только в WGS84 (широта/долгота).
-        center = gpd.GeoSeries(
-            [center_projected], crs=projected.crs
+        footprint_projected = group.geometry.unary_union
+        center_projected = footprint_projected.centroid
+        footprint = gpd.GeoSeries(
+            [footprint_projected], crs=projected.crs
         ).to_crs("EPSG:4326").iloc[0]
+        center = footprint.centroid
         clusters.append({
             "cluster_id": len(clusters),
             "cell_ids": group["cell_id"].astype(str).tolist(),
@@ -127,6 +129,7 @@ def build_cell_clusters(frame, max_score_gap=10.0):
             "score_min": float(group["comfort_index"].min()),
             "score_max": float(group["comfort_index"].max()),
             "geometry": center,
+            "footprint": footprint,
             **{
                 f"score_{key}": group[f"score_{key}"].mean()
                 for key in CRITERIA
@@ -338,7 +341,7 @@ if page == "Карта":
                 )
                 folium.CircleMarker(
                     location=[point.y, point.x],
-                    radius=radius,
+                    radius=9,
                     color="#ffffff",
                     weight=1.5,
                     fill=True,
@@ -346,6 +349,27 @@ if page == "Карта":
                     fill_opacity=0.88,
                     popup=folium.Popup(popup_text, max_width=280),
                     tooltip=cluster_labels[int(row.cluster_id)],
+                ).add_to(city_map)
+
+                feature = {
+                    "type": "Feature",
+                    "properties": {"cluster_label": cluster_labels[int(row.cluster_id)]},
+                    "geometry": mapping(row.footprint),
+                }
+                folium.GeoJson(
+                    feature,
+                    style_function=lambda f, color=row.color: {
+                        "color": "#20242b", "weight": 1,
+                        "fillColor": color, "fillOpacity": 0.01,
+                    },
+                    highlight_function=lambda f, color=row.color: {
+                        "color": "#20242b", "weight": 3,
+                        "fillColor": color, "fillOpacity": 0.38,
+                    },
+                    tooltip=folium.GeoJsonTooltip(
+                        fields=["cluster_label"], aliases=["Территория:"], sticky=False
+                    ),
+                    popup=folium.Popup(popup_text, max_width=280),
                 ).add_to(city_map)
 
         color_map.caption = "Средний индекс комфорта"
@@ -419,29 +443,27 @@ if page == "Карта":
             )
 
             point = selected_group["geometry"]
-            location_query = (
-                f"Магнитогорск {point.y:.5f} {point.x:.5f} аренда квартиры"
-            )
+            location_query = f"Магнитогорск аренда квартиры {point.y:.5f} {point.x:.5f}"
             st.markdown("### Квартиры поблизости")
-            st.caption(
-                "Поиск откроется на внешней площадке. Встроенные объявления "
-                "подключим после согласования официального доступа."
-            )
-            cian_query = quote_plus(f"site:cian.ru аренда квартиры {location_query}")
-            avito_query = quote_plus(f"site:avito.ru аренда квартиры {location_query}")
+            st.caption("Откроется поиск объявлений по Магнитогорску. Точное совпадение с контуром группы пока не поддерживается.")
             link_col1, link_col2 = st.columns(2)
             with link_col1:
                 st.link_button(
-                    "ЦИАН ↗",
-                    f"https://www.google.com/search?q={cian_query}",
+                    "ЦИАН · Магнитогорск ↗",
+                    "https://chelyabinsk.cian.ru/snyat-kvartiru-chelyabinskaya-oblast-magnitogorsk/",
                     use_container_width=True,
                 )
             with link_col2:
                 st.link_button(
-                    "Авито ↗",
-                    f"https://www.google.com/search?q={avito_query}",
+                    "Авито · Недвижимость ↗",
+                    "https://www.avito.ru/real_estate",
                     use_container_width=True,
                 )
+            st.link_button(
+                "Открыть расположение на карте ↗",
+                f"https://yandex.ru/maps/?ll={point.x:.6f}%2C{point.y:.6f}&z=16",
+                use_container_width=True,
+            )
 
 elif page == "Рейтинг":
     cluster_data = build_cell_clusters(filtered_data, max_score_gap=10.0) if not filtered_data.empty else pd.DataFrame()
