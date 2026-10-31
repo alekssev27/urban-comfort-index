@@ -1,4 +1,6 @@
 import re
+import logging
+import time
 from pathlib import Path
 from shapely.geometry import mapping
 from urllib.parse import quote_plus
@@ -360,8 +362,13 @@ data_signature = (
 )
 streets_signature = _file_signature("data/raw/streets_osm.geojson")
 
+diagnostic_started = time.perf_counter()
 try:
     data = get_profile_scores(profile, data_signature)
+    logging.info(
+        "MESTO_PERF data_and_scores_seconds=%.3f rows=%s",
+        time.perf_counter() - diagnostic_started, len(data)
+    )
 except (FileNotFoundError, ValueError, OSError) as error:
     st.error("Не удалось загрузить данные городской среды. Попробуйте обновить страницу.")
     import logging
@@ -420,8 +427,13 @@ if page == "Карта":
         ).add_to(city_map)
 
         try:
+            cluster_started = time.perf_counter()
             cluster_data = get_profile_clusters(
                 profile, data_signature, streets_signature, threshold_values
+            )
+            logging.info(
+                "MESTO_PERF clusters_and_street_names_seconds=%.3f clusters=%s",
+                time.perf_counter() - cluster_started, len(cluster_data)
             )
         except Exception:
             import logging
@@ -506,12 +518,17 @@ if page == "Карта":
         else:
             bounds = data.total_bounds
         city_map.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
+        map_render_started = time.perf_counter()
         map_result = st_folium(
             city_map,
             use_container_width=True,
             height=720,
             key="clustered_comfort_map",
             returned_objects=["last_object_clicked", "last_object_clicked_popup"],
+        )
+        logging.info(
+            "MESTO_PERF folium_render_seconds=%.3f",
+            time.perf_counter() - map_render_started
         )
 
         # Сначала определяем выбранную группу по содержимому popup.
