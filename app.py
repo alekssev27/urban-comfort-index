@@ -205,7 +205,6 @@ with map_tab:
             tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
             name="Спутник", attr="Tiles © Esri", control=True, show=False,
         ).add_to(city_map)
-        folium.LayerControl(position="topright", collapsed=True).add_to(city_map)
 
         map_data = data[
             ["cell_id", "comfort_index", *[f"score_{key}" for key in CRITERIA], "geometry"]
