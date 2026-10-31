@@ -204,11 +204,12 @@ if page == "🗺️ Карта":
             control_scale=True,
         )
         folium.TileLayer(
-            tiles="https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-            name="Светлая карта",
-            attr="© OpenStreetMap contributors © CARTO",
+            tiles="https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="Обычная карта",
+            attr="© OpenStreetMap contributors",
             control=True,
             show=True,
+            max_zoom=19,
         ).add_to(city_map)
         folium.TileLayer(
             tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
