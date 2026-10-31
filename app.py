@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 from shapely.geometry import mapping
 from urllib.parse import quote_plus
 
@@ -67,6 +68,56 @@ def score_color(value, color_map):
     if pd.isna(value):
         return "#9ca3af"
     return color_map(float(value))
+
+
+def load_street_segments():
+    """Загрузить локальный слой улиц, подготовленный отдельным OSM-скриптом."""
+    path = Path("data/raw/streets_osm.geojson")
+    if not path.exists():
+        return None
+    try:
+        streets = gpd.read_file(path)
+        if streets.crs is None:
+            streets = streets.set_crs("EPSG:4326")
+        return streets.to_crs("EPSG:32640")
+    except Exception:
+        return None
+
+
+def assign_cluster_street_names(clusters, streets):
+    """Выбрать улицу с наибольшей длиной внутри каждой группы."""
+    if clusters.empty:
+        return clusters
+    used_names = {}
+    display_names = []
+    for row in clusters.itertuples():
+        best_name = None
+        if streets is not None and not streets.empty:
+            footprint = gpd.GeoSeries(
+                [row.footprint], crs="EPSG:4326"
+            ).to_crs("EPSG:32640").iloc[0]
+            candidates = streets[streets.geometry.intersects(footprint)]
+            lengths = {}
+            for street in candidates.itertuples():
+                name = getattr(street, "name", None)
+                if not name or pd.isna(name):
+                    continue
+                clipped = street.geometry.intersection(footprint)
+                if not clipped.is_empty:
+                    lengths[name] = lengths.get(name, 0.0) + clipped.length
+            if lengths:
+                best_name = max(lengths, key=lengths.get)
+
+        best_name = best_name or "Жилая территория"
+        used_names[best_name] = used_names.get(best_name, 0) + 1
+        suffix = used_names[best_name]
+        display_names.append(
+            best_name if suffix == 1 else f"{best_name} {suffix}"
+        )
+
+    result = clusters.copy()
+    result["display_name"] = display_names
+    return result
 
 
 def build_cell_clusters(frame, max_score_gap=10.0):
@@ -320,9 +371,10 @@ if page == "Карта":
         ).add_to(city_map)
 
         cluster_data = build_cell_clusters(filtered_data, max_score_gap=10.0) if not filtered_data.empty else pd.DataFrame()
+        cluster_data = assign_cluster_street_names(cluster_data, load_street_segments())
         cluster_labels = {
             int(row.cluster_id): (
-                f"Группа {int(row.cluster_id) + 1} · {int(row.cell_count)} яч. · "
+                f"{row.display_name} · {int(row.cell_count)} яч. · "
                 f"индекс {row.comfort_index:.1f}"
             )
             for row in cluster_data.itertuples()
