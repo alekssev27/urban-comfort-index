@@ -410,17 +410,63 @@ if page == "Карта":
         }
         </style>
         """))
+        # Яндекс Tiles API — основная подложка, если ключ добавлен в Streamlit Secrets.
+        try:
+            yandex_api_key = str(st.secrets.get("YANDEX_MAPS_API_KEY", "")).strip()
+        except Exception:
+            yandex_api_key = ""
+
+        if yandex_api_key:
+            yandex_tiles_url = (
+                "https://tiles.api-maps.yandex.ru/v1/tiles/"
+                "?x={x}&y={y}&z={z}&lang=ru_RU&l=map"
+                "&projection=web_mercator&apikey=" + quote_plus(yandex_api_key)
+            )
+            folium.TileLayer(
+                tiles=yandex_tiles_url,
+                name="Яндекс",
+                attr='<a href="https://yandex.ru/maps/" target="_blank">Яндекс Карты</a>',
+                control=True,
+                show=True,
+                max_zoom=20,
+                tile_size=256,
+            ).add_to(city_map)
+
+            # По условиям Tiles API логотип Яндекса должен быть виден на карте
+            # и вести на главную страницу Яндекс Карт.
+            city_map.get_root().html.add_child(folium.Element("""
+            <a href="https://yandex.ru/maps/" target="_blank"
+               style="position:absolute;bottom:14px;left:14px;z-index:1000;
+                      display:block;padding:5px 9px;background:rgba(255,255,255,.94);
+                      border-radius:5px;text-decoration:none;color:#222;
+                      font:700 15px Arial,sans-serif;box-shadow:0 1px 4px #777;">
+                Яндекс <span style="font-size:11px;font-weight:400;">Карты</span>
+            </a>
+            """))
+        else:
+            st.warning(
+                "Ключ Яндекс Карт не найден в Secrets. Используется OpenStreetMap."
+            )
+            folium.TileLayer(
+                tiles="https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                name="OpenStreetMap",
+                attr="© OpenStreetMap contributors",
+                control=True,
+                show=True,
+                max_zoom=19,
+            ).add_to(city_map)
+
         folium.TileLayer(
             tiles="https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-            name="Карта",
+            name="OpenStreetMap",
             attr="© OpenStreetMap contributors",
             control=True,
-            show=True,
+            show=not bool(yandex_api_key),
             max_zoom=19,
         ).add_to(city_map)
         folium.TileLayer(
             tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-            name="Спутник",
+            name="Спутник Esri",
             attr="Tiles © Esri",
             control=True,
             show=False,
