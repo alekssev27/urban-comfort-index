@@ -53,7 +53,6 @@ PROFILES = {
 }
 
 
-@st.cache_data(show_spinner=False)
 def prepare_scores(raw_data, weights):
     """Подготовить оценки критериев и рассчитать индекс с текущими весами."""
     data = raw_data.copy()
@@ -86,7 +85,6 @@ def load_street_segments():
         return None
 
 
-@st.cache_data(show_spinner=False)
 def assign_cluster_street_names(clusters, streets):
     """Привязать группу к реальному названию улицы из OSM."""
     if clusters.empty:
@@ -140,7 +138,6 @@ def assign_cluster_street_names(clusters, streets):
     return result
 
 
-@st.cache_data(show_spinner=False)
 def build_cell_clusters(frame, max_score_gap=10.0, max_cells=8):
     """Объединить соседние ячейки с ограничением диапазона оценок и размера группы."""
     projected = frame.to_crs("EPSG:32640").reset_index(drop=True)
@@ -344,9 +341,16 @@ except (FileNotFoundError, ValueError, OSError) as error:
     )
     st.stop()
 
-data = prepare_scores(raw_data, weights)
+try:
+    data = prepare_scores(raw_data, weights)
+except Exception:
+    import logging
+    logging.exception("Ошибка при подготовке оценок жилых территорий")
+    st.error("Не удалось подготовить данные для отображения. Попробуйте обновить страницу. Если проблема повторится, сообщите команде Mesto.")
+    st.stop()
+
 if data.empty:
-    st.error("После объединения геоданных не осталось жилых ячеек.")
+    st.warning("Пока нет данных о жилых территориях для отображения.")
     st.stop()
 
 filtered_data = data.copy()
@@ -395,8 +399,14 @@ if page == "Карта":
             show=False,
         ).add_to(city_map)
 
-        cluster_data = build_cell_clusters(filtered_data, max_score_gap=10.0) if not filtered_data.empty else pd.DataFrame()
-        cluster_data = assign_cluster_street_names(cluster_data, load_street_segments())
+        try:
+            cluster_data = build_cell_clusters(filtered_data, max_score_gap=10.0) if not filtered_data.empty else pd.DataFrame()
+            cluster_data = assign_cluster_street_names(cluster_data, load_street_segments())
+        except Exception:
+            import logging
+            logging.exception("Ошибка при построении кластеров карты")
+            st.error("Не удалось построить карту территорий. Попробуйте обновить страницу. Если проблема повторится, сообщите команде Mesto.")
+            st.stop()
 
         # Переход из рейтинга к территории: находим её актуальную группу
         # с учётом включённых на карте фильтров.
