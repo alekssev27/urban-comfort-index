@@ -146,14 +146,17 @@ def deduplicate_transport_features(
         modes = set()
         members = []
         names = []
-        for feature, _ in group:
+        for feature, member_point in group:
             props = feature.get("properties", {})
             tags = props.get("tags") or {}
             modes.update(_transport_modes(tags))
+            member_lon, member_lat = inverse.transform(member_point.x, member_point.y)
             members.append({
                 "osm_type": props.get("osm_type"),
                 "osm_id": props.get("osm_id"),
                 "name": props.get("name"),
+                "longitude": member_lon,
+                "latitude": member_lat,
                 "public_transport": tags.get("public_transport"),
                 "highway": tags.get("highway"),
             })
