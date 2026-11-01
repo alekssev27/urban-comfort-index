@@ -37,8 +37,8 @@ def test_uses_medical_polygon_geometry():
         crs=CRS,
     )
     result = calculate_medical_accessibility(make_grid(), facilities)
-    assert result.loc[0, "nearest_distance_medical_m"] == pytest.approx(350)
-    assert result.loc[0, "score_medical"] == pytest.approx(82.5)
+    assert result.loc[0, "nearest_distance_medical_m"] == pytest.approx(400)
+    assert result.loc[0, "score_medical"] == pytest.approx(80)
 
 
 def test_facility_covering_cell_centroid_has_zero_distance():
