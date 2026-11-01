@@ -1,10 +1,13 @@
-"""Summarize the deduplicated OSM transport-stop candidates."""
+"""Summarize deduplicated OSM transport stops and inspect their spatial grouping."""
 from __future__ import annotations
 
 import argparse
 import json
 from collections import Counter
 from pathlib import Path
+
+from pyproj import Transformer
+from shapely.geometry import Point
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_INPUT = ROOT / "data/processed/transport_stops_deduplicated.geojson"
@@ -28,6 +31,7 @@ def main() -> None:
     empty_modes = 0
     unnamed_groups = 0
     large_groups = []
+    transformer = Transformer.from_crs("EPSG:4326", "EPSG:32640", always_xy=True)
 
     for feature in features:
         props = feature.get("properties") or {}
@@ -41,6 +45,22 @@ def main() -> None:
             empty_modes += 1
         if not props.get("name"):
             unnamed_groups += 1
+
+        member_points = []
+        for member in members:
+            lon, lat = member.get("longitude"), member.get("latitude")
+            if isinstance(lon, (int, float)) and isinstance(lat, (int, float)):
+                x, y = transformer.transform(lon, lat)
+                member_points.append((member, Point(x, y)))
+
+        pair_distances = []
+        for i, (left_member, left_point) in enumerate(member_points):
+            for right_member, right_point in member_points[i + 1:]:
+                pair_distances.append(
+                    (left_member, right_member, left_point.distance(right_point))
+                )
+        max_pair_distance = max((item[2] for item in pair_distances), default=0.0)
+
         if size >= args.show_large:
             large_groups.append({
                 "group_id": props.get("stop_group_id"),
@@ -48,6 +68,8 @@ def main() -> None:
                 "name": props.get("name"),
                 "members": members,
                 "transport_modes": group_modes,
+                "pair_distances": pair_distances,
+                "max_pair_distance": max_pair_distance,
             })
 
     total_members = sum(size * count for size, count in sizes.items())
@@ -73,7 +95,7 @@ def main() -> None:
         print("  Транспортные режимы не определены ни для одной группы.")
 
     if large_groups:
-        print(f"\nГруппы с {args.show_large}+ элементами — требуют визуальной проверки:")
+        print(f"\nГруппы с {args.show_large}+ элементами — пространственная диагностика:")
         for group in sorted(large_groups, key=lambda item: (-item["member_count"], str(item["group_id"]))):
             print(
                 f"  {group['group_id']}: {group['member_count']} элементов; "
@@ -84,7 +106,16 @@ def main() -> None:
                     f"    - {member.get('osm_type')}/{member.get('osm_id')}: "
                     f"name={member.get('name')!r}, "
                     f"public_transport={member.get('public_transport')!r}, "
-                    f"highway={member.get('highway')!r}"
+                    f"highway={member.get('highway')!r}, "
+                    f"lon={member.get('longitude')}, lat={member.get('latitude')}"
+                )
+            print(f"    Максимальное расстояние между элементами: {group['max_pair_distance']:.1f} м")
+            for left, right, distance in sorted(
+                group["pair_distances"], key=lambda item: item[2], reverse=True
+            ):
+                print(
+                    f"      {left.get('osm_type')}/{left.get('osm_id')} — "
+                    f"{right.get('osm_type')}/{right.get('osm_id')}: {distance:.1f} м"
                 )
 
 
