@@ -35,7 +35,7 @@ def main() -> None:
 
     print(f"Ячеек обработано: {len(result)}")
     print(f"Остановок-кандидатов: {len(stops)}")
-    print(f"Ячеек с остановкой в радиусе {args.count_radius_m:.0f} м: "
+    print(f"Ячеек с остановкой в радиусе 500 м: "
           f"{int((result['transport_stop_count_500m'] > 0).sum())}")
     print(f"Среднее число остановок в радиусе: "
           f"{result['transport_stop_count_500m'].mean():.2f}")
