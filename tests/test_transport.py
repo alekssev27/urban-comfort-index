@@ -1,8 +1,9 @@
 import pytest
+
 from src.transport import deduplicate_transport_features
 
 
-def feature(osm_id, lon, lat, tags, category="transport"):
+def feature(osm_id, lon, lat, tags, category="transport", name=None):
     return {
         "type": "Feature",
         "geometry": {"type": "Point", "coordinates": [lon, lat]},
@@ -10,7 +11,7 @@ def feature(osm_id, lon, lat, tags, category="transport"):
             "osm_type": "node",
             "osm_id": osm_id,
             "category": category,
-            "name": None,
+            "name": name,
             "tags": tags,
         },
     }
@@ -42,7 +43,6 @@ def test_does_not_merge_stops_farther_than_radius():
 
 
 def test_complete_link_prevents_chaining_three_stops():
-    # A-B and B-C are close, but A-C are farther apart than 25 metres.
     items = [
         feature(1, 58.98000, 53.40, {"highway": "bus_stop"}),
         feature(2, 58.98025, 53.40, {"public_transport": "platform"}),
@@ -52,6 +52,39 @@ def test_complete_link_prevents_chaining_three_stops():
     result = deduplicate_transport_features(items, merge_radius_m=25)
 
     assert len(result) == 2
+
+
+def test_does_not_merge_close_stops_with_conflicting_names():
+    items = [
+        feature(1, 58.98, 53.40, {"public_transport": "platform"}, name="Улица Галиуллина"),
+        feature(2, 58.98005, 53.40, {"public_transport": "platform"}, name="Дом творчества"),
+    ]
+
+    result = deduplicate_transport_features(items, merge_radius_m=25)
+
+    assert len(result) == 2
+
+
+def test_normalises_common_stop_name_prefixes():
+    items = [
+        feature(1, 58.98, 53.40, {"public_transport": "platform"}, name="ул. Чапаева"),
+        feature(2, 58.98005, 53.40, {"public_transport": "stop_position"}, name="Чапаева"),
+    ]
+
+    result = deduplicate_transport_features(items, merge_radius_m=25)
+
+    assert len(result) == 1
+
+
+def test_missing_name_does_not_prevent_spatial_match():
+    items = [
+        feature(1, 58.98, 53.40, {"highway": "bus_stop"}, name="Цирк"),
+        feature(2, 58.98005, 53.40, {"public_transport": "platform"}, name=None),
+    ]
+
+    result = deduplicate_transport_features(items, merge_radius_m=25)
+
+    assert len(result) == 1
 
 
 def test_ignores_non_transport_features():
