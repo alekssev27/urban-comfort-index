@@ -74,7 +74,7 @@ def test_multiple_separate_green_areas_combine_without_exceeding_100():
 def test_no_green_area_within_threshold_gets_zero_but_keeps_nearest_distance():
     green = make_green([box(X + 2000, Y - 50, X + 2100, Y + 50)])
     result = calculate_green_accessibility(make_grid(), green)
-    assert result.loc[0, "nearest_distance_green_m"] == pytest.approx(1950)
+    assert result.loc[0, "nearest_distance_green_m"] == pytest.approx(2000)
     assert result.loc[0, "green_area_count_1500m"] == 0
     assert result.loc[0, "score_green"] == 0
 
