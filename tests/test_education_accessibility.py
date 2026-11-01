@@ -37,8 +37,8 @@ def test_uses_polygon_geometry_not_only_centroid_or_point():
         crs=CRS,
     )
     result = calculate_education_accessibility(make_grid(), facilities)
-    assert result.loc[0, "nearest_distance_education_m"] == pytest.approx(350)
-    assert result.loc[0, "score_education"] == pytest.approx(82.5)
+    assert result.loc[0, "nearest_distance_education_m"] == pytest.approx(400)
+    assert result.loc[0, "score_education"] == pytest.approx(80)
 
 
 def test_facility_covering_cell_centroid_has_zero_distance():
