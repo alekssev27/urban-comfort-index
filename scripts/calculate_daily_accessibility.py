@@ -16,7 +16,7 @@ OUTPUT_PATH = ROOT / "data/processed/daily_accessibility.csv"
 
 BASIC_SHOPS = {
     "supermarket", "convenience", "greengrocer", "bakery",
-    "butcher", "general", "food",
+    "butcher", "chemist", "general", "food",
 }
 BASIC_AMENITIES = {"pharmacy", "marketplace"}
 ADDITIONAL_AMENITIES = {"bank", "atm", "post_office", "parcel_locker"}
