@@ -4,12 +4,16 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 import geopandas as gpd
 
 from src.medical_accessibility import calculate_medical_accessibility
 
-ROOT = Path(__file__).resolve().parents[1]
 GRID_PATH = ROOT / "data/processed/grid_cells.geojson"
 INFRASTRUCTURE_PATH = ROOT / "data/raw/infrastructure_osm.geojson"
 OUTPUT_PATH = ROOT / "data/processed/medical_accessibility.csv"
