@@ -141,12 +141,17 @@ def calculate_transport_accessibility(
     if not nearby.empty:
         grouped = nearby.groupby("cell_id", sort=False)
         counts = grouped["stop_group_id"].nunique()
-        modes_by_cell = grouped["_modes"].apply(
-            lambda values: sorted(set().union(*values.tolist()))
-        )
         result.loc[counts.index, "transport_stop_count_500m"] = counts.astype(int)
-        result.loc[modes_by_cell.index, "transport_mode_count_500m"] = modes_by_cell.map(len).astype(int)
-        result.loc[modes_by_cell.index, "transport_modes_500m"] = modes_by_cell.map(lambda values: ",".join(values))
+
+        # Aggregate modes explicitly instead of relying on pandas object-column
+        # aggregation; this also handles empty sets and GeoPandas join output.
+        modes_by_cell = {}
+        for cell_id, modes in nearby[["cell_id", "_modes"]].itertuples(index=False, name=None):
+            modes_by_cell.setdefault(cell_id, set()).update(modes or set())
+        for cell_id, modes in modes_by_cell.items():
+            ordered_modes = sorted(modes)
+            result.at[cell_id, "transport_mode_count_500m"] = len(ordered_modes)
+            result.at[cell_id, "transport_modes_500m"] = ",".join(ordered_modes)
 
     distance_score = (
         100.0 * (1.0 - result["nearest_distance_transport_m"] / distance_threshold_m)
