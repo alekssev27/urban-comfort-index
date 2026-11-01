@@ -63,11 +63,11 @@ def test_counts_stops_within_radius_and_unique_transport_modes():
         {"stop_group_id": "s2", "name": "B", "transport_modes": ["tram"], "x": CENTER_X + 470, "y": CENTER_Y},
         {"stop_group_id": "s3", "name": "C", "transport_modes": ["train"], "x": CENTER_X + 490, "y": CENTER_Y},
     ])
-    result = calculate_transport_accessibility(make_grid())
+    result = calculate_transport_accessibility(make_grid(), stops)
     assert result.loc[0, "transport_stop_count_500m"] == 3
     assert result.loc[0, "transport_mode_count_500m"] == 3
     assert result.loc[0, "transport_modes_500m"] == "bus,train,tram"
-    assert result.loc[0, "score_transport"] == pytest.approx(63)
+    assert result.loc[0, "score_transport"] == pytest.approx(90.5)
 
 
 def test_stops_outside_count_radius_still_contribute_nearest_distance():
