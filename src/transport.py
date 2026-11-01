@@ -64,6 +64,24 @@ def _names_compatible(left: dict[str, Any], right: dict[str, Any]) -> bool:
     return not (left_name and right_name and left_name != right_name)
 
 
+
+def _feature_modes(feature: dict[str, Any]) -> set[str]:
+    """Return transport modes explicitly supported by one OSM feature."""
+    props = feature.get("properties", {})
+    tags = props.get("tags") or {}
+    modes = _transport_modes(tags)
+    if tags.get("highway") == "bus_stop":
+        modes.add("bus")
+    return modes
+
+
+def _modes_compatible(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    """Known disjoint modes are kept separate; unknown modes are inconclusive."""
+    left_modes = _feature_modes(left)
+    right_modes = _feature_modes(right)
+    return not left_modes or not right_modes or bool(left_modes & right_modes)
+
+
 def _representative_point(feature: dict[str, Any], transformer: Transformer):
     geometry = shape(feature["geometry"])
     if geometry.is_empty:
@@ -93,11 +111,13 @@ def deduplicate_transport_features(
     merge_radius_m: float = DEFAULT_MERGE_RADIUS_M,
     metric_crs: str = DEFAULT_METRIC_CRS,
 ) -> list[dict[str, Any]]:
-    """Group nearby OSM stop elements into candidate physical stops.
+    """Group nearby OSM objects into candidate physical stops.
 
-    Features are expected in WGS84 coordinates. Every pair in a group must be
-    within merge_radius_m (complete-link), and explicitly different names are
-    never merged. Missing names do not prevent a spatial match.
+    Same-name objects with a compatible known transport mode are grouped
+    within merge_radius_m, including opposite-direction platforms. Explicitly
+    different names or known disjoint modes are kept separate. Missing names
+    or modes are inconclusive and use the spatial/name evidence available.
+    Every pair must satisfy the complete-link radius constraint.
     """
     if merge_radius_m <= 0:
         raise ValueError("merge_radius_m must be positive")
@@ -127,6 +147,7 @@ def deduplicate_transport_features(
                 if all(
                     point.distance(member_point) <= merge_radius_m
                     and _names_compatible(feature, member_feature)
+                    and _modes_compatible(feature, member_feature)
                     for member_feature, member_point in group
                 )
             ),
@@ -174,7 +195,7 @@ def deduplicate_transport_features(
                 "member_osm_objects": members,
                 "transport_modes": sorted(modes),
                 "deduplication_radius_m": merge_radius_m,
-                "deduplication_method": "complete_link_with_name_guard",
+                "deduplication_method": "complete_link_name_and_mode_guard",
             },
         })
     return result
