@@ -1,11 +1,11 @@
-"""Utilities for grouping OSM transport-stop elements into physical stops."""
+"""Utilities for grouping OSM transport-stop elements into physical-stop candidates."""
 from __future__ import annotations
 
-from collections import defaultdict
+import re
 from typing import Any
 
 from pyproj import Transformer
-from shapely.geometry import Point, shape, mapping
+from shapely.geometry import Point, mapping, shape
 from shapely.ops import transform
 
 
@@ -21,6 +21,47 @@ _MODE_TAGS = {
     "subway": "subway",
     "monorail": "monorail",
 }
+_NAME_PREFIXES = (
+    "остановка общественного транспорта",
+    "остановка",
+    "улица",
+    "ул",
+    "проспект",
+    "просп",
+    "пр",
+    "площадь",
+    "пл",
+)
+
+
+def _normalise_name(value: Any) -> str | None:
+    """Normalise common OSM stop-name variants without guessing identities."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    name = value.casefold().replace("ё", "е")
+    name = re.sub(r"[^\\w\\s-]", " ", name, flags=re.UNICODE)
+    name = re.sub(r"\\s+", " ", name).strip()
+    changed = True
+    while changed:
+        changed = False
+        for prefix in _NAME_PREFIXES:
+            if name == prefix:
+                name = ""
+                changed = True
+                break
+            if name.startswith(prefix + " "):
+                name = name[len(prefix):].strip()
+                changed = True
+                break
+    return name or None
+
+
+def _names_compatible(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    left_name = _normalise_name(left.get("properties", {}).get("name"))
+    right_name = _normalise_name(right.get("properties", {}).get("name"))
+    # Missing names are inconclusive; two explicitly different names are a
+    # strong signal that nearby elements may be separate physical stops.
+    return not (left_name and right_name and left_name != right_name)
 
 
 def _representative_point(feature: dict[str, Any], transformer: Transformer):
@@ -44,8 +85,6 @@ def _transport_modes(tags: dict[str, Any]) -> set[str]:
         modes.add("tram")
     if railway in {"station", "halt"}:
         modes.add("train")
-    # A bus_stop/platform without explicit mode tags is not assumed to support
-    # every public-transport mode; leave its mode list empty.
     return modes
 
 
@@ -54,11 +93,11 @@ def deduplicate_transport_features(
     merge_radius_m: float = DEFAULT_MERGE_RADIUS_M,
     metric_crs: str = DEFAULT_METRIC_CRS,
 ) -> list[dict[str, Any]]:
-    """Group nearby OSM stop elements without discarding their source IDs.
+    """Group nearby OSM stop elements into candidate physical stops.
 
-    Features are expected in WGS84/CRS84 coordinates. A complete-link distance
-    condition is used: every member of a group must be within merge_radius_m of
-    every other member. This prevents long chains of nearby stops from merging.
+    Features are expected in WGS84 coordinates. Every pair in a group must be
+    within merge_radius_m (complete-link), and explicitly different names are
+    never merged. Missing names do not prevent a spatial match.
     """
     if merge_radius_m <= 0:
         raise ValueError("merge_radius_m must be positive")
@@ -81,10 +120,16 @@ def deduplicate_transport_features(
 
     groups: list[list[tuple[dict[str, Any], Point]]] = []
     for candidate in candidates:
-        _, point = candidate
+        feature, point = candidate
         matching = next(
-            (group for group in groups
-             if all(point.distance(member_point) <= merge_radius_m for _, member_point in group)),
+            (
+                group for group in groups
+                if all(
+                    point.distance(member_point) <= merge_radius_m
+                    and _names_compatible(feature, member_feature)
+                    for member_feature, member_point in group
+                )
+            ),
             None,
         )
         if matching is None:
@@ -95,7 +140,6 @@ def deduplicate_transport_features(
     result = []
     inverse = Transformer.from_crs(metric_crs, "EPSG:4326", always_xy=True)
     for index, group in enumerate(groups, start=1):
-        # Use the mean projected coordinates as the representative stop point.
         x = sum(point.x for _, point in group) / len(group)
         y = sum(point.y for _, point in group) / len(group)
         lon, lat = inverse.transform(x, y)
@@ -127,7 +171,7 @@ def deduplicate_transport_features(
                 "member_osm_objects": members,
                 "transport_modes": sorted(modes),
                 "deduplication_radius_m": merge_radius_m,
-                "deduplication_method": "complete_link_euclidean",
+                "deduplication_method": "complete_link_with_name_guard",
             },
         })
     return result
