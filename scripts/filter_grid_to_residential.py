@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import shutil
 from pathlib import Path
 
 import geopandas as gpd
@@ -18,6 +19,7 @@ def main():
     parser.add_argument("--grid", type=Path, default=GRID_PATH)
     parser.add_argument("--buildings", type=Path, default=BUILDINGS_PATH)
     parser.add_argument("--output", type=Path, default=GRID_PATH)
+    parser.add_argument("--backup", type=Path, default=ROOT / "data/processed/grid_cells_full.geojson")
     args = parser.parse_args()
 
     for path in (args.grid, args.buildings):
@@ -28,6 +30,10 @@ def main():
     buildings = gpd.read_file(args.buildings)
     filtered = filter_grid_by_residential_buildings(grid, buildings)
     args.output.parent.mkdir(parents=True, exist_ok=True)
+    if args.grid.resolve() == args.output.resolve() and not args.backup.exists():
+        args.backup.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(args.grid, args.backup)
+        print(f"Исходная сетка сохранена в резервную копию: {args.backup}")
     filtered.to_crs("EPSG:4326").to_file(args.output, driver="GeoJSON")
 
     removed = len(grid) - len(filtered)
