@@ -13,7 +13,11 @@ from shapely.geometry import LineString, MultiPolygon, Point, Polygon, shape, ma
 ROOT = Path(__file__).resolve().parents[1]
 BOUNDARY_PATH = ROOT / "data/raw/city_boundary.geojson"
 OUTPUT_PATH = ROOT / "data/raw/residential_buildings_osm.geojson"
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+OVERPASS_URLS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+]
 USER_AGENT = "urban-comfort-index-student-project/0.3 (residential building footprints)"
 
 RESIDENTIAL_BUILDING_VALUES = {
@@ -89,11 +93,35 @@ def main():
         f'nwr(poly:"{polygon}")["building:use"="residential"];'
         f');out geom;'
     )
-    response = requests.post(
-        OVERPASS_URL, data={"data": query},
-        headers={"User-Agent": USER_AGENT}, timeout=args.timeout + 30,
-    )
-    response.raise_for_status()
+    response = None
+    errors = []
+    for endpoint in OVERPASS_URLS:
+        for attempt in range(1, 3):
+            try:
+                print(f"Запрос к {endpoint} (попытка {attempt}/2)...")
+                candidate = requests.post(
+                    endpoint, data={"data": query},
+                    headers={"User-Agent": USER_AGENT},
+                    timeout=args.timeout + 30,
+                )
+                candidate.raise_for_status()
+                response = candidate
+                print(f"Успешный ответ от {endpoint}")
+                break
+            except requests.RequestException as error:
+                errors.append(f"{endpoint}: {error}")
+                print(f"Сервер временно недоступен: {error}")
+                if attempt < 2:
+                    time.sleep(5)
+        if response is not None:
+            break
+
+    if response is None:
+        details = "\\n".join(errors)
+        raise SystemExit(
+            "Не удалось получить данные ни с одного сервера Overpass. "
+            "Файл не перезаписан. Ошибки:\\n" + details
+        )
 
     features, seen = [], set()
     for element in response.json().get("elements", []):
@@ -127,7 +155,7 @@ def main():
         "name": "magnitogorsk_residential_buildings",
         "metadata": {
             "retrieved_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "source": "OpenStreetMap via Overpass API",
+            "source": "OpenStreetMap via Overpass API",\n            "source_url": response.url,
             "license": "ODbL 1.0",
             "building_values": sorted(RESIDENTIAL_BUILDING_VALUES),
         },
