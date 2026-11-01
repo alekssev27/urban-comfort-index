@@ -45,7 +45,7 @@ def test_calculates_nearest_stop_distance_and_score():
     assert result.loc[0, "score_transport"] == pytest.approx(95)
 
 
-def test_counts_each_stop_once_and_collects_all_modes():
+def test_stops_outside_count_radius_do_not_increase_local_diversity():
     stops = make_stops([
         {"stop_group_id": "s1", "name": "A", "transport_modes": ["bus", "tram"], "x": CENTER_X + 1000, "y": CENTER_Y},
         {"stop_group_id": "s2", "name": "B", "transport_modes": ["tram"], "x": CENTER_X + 1100, "y": CENTER_Y},
@@ -54,16 +54,16 @@ def test_counts_each_stop_once_and_collects_all_modes():
     result = calculate_transport_accessibility(make_grid(), stops)
     assert result.loc[0, "transport_stop_count_500m"] == 0
     assert result.loc[0, "transport_mode_count_500m"] == 0
-    assert result.loc[0, "score_transport"] == pytest.approx(40)
+    assert result.loc[0, "score_transport"] == pytest.approx(50)
 
 
 def test_counts_stops_within_radius_and_unique_transport_modes():
     stops = make_stops([
-        {"stop_group_id": "s1", "name": "A", "transport_modes": ["bus", "tram"], "x": CENTER_X + 1000, "y": CENTER_Y},
-        {"stop_group_id": "s2", "name": "B", "transport_modes": ["tram"], "x": CENTER_X + 1100, "y": CENTER_Y},
-        {"stop_group_id": "s3", "name": "C", "transport_modes": ["train"], "x": CENTER_X + 1200, "y": CENTER_Y},
+        {"stop_group_id": "s1", "name": "A", "transport_modes": ["bus", "tram"], "x": CENTER_X + 450, "y": CENTER_Y},
+        {"stop_group_id": "s2", "name": "B", "transport_modes": ["tram"], "x": CENTER_X + 470, "y": CENTER_Y},
+        {"stop_group_id": "s3", "name": "C", "transport_modes": ["train"], "x": CENTER_X + 490, "y": CENTER_Y},
     ])
-    result = calculate_transport_accessibility(make_grid(), stops, count_radius_m=1250)
+    result = calculate_transport_accessibility(make_grid())
     assert result.loc[0, "transport_stop_count_500m"] == 3
     assert result.loc[0, "transport_mode_count_500m"] == 3
     assert result.loc[0, "transport_modes_500m"] == "bus,train,tram"
