@@ -7,9 +7,14 @@ from pathlib import Path
 
 import geopandas as gpd
 
+ROOT = Path(__file__).resolve().parents[1]
+import sys
+
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from src.residential_filter import filter_grid_by_residential_buildings
 
-ROOT = Path(__file__).resolve().parents[1]
 GRID_PATH = ROOT / "data/processed/grid_cells.geojson"
 BUILDINGS_PATH = ROOT / "data/raw/residential_buildings_osm.geojson"
 
