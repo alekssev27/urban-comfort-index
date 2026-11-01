@@ -1,3 +1,7 @@
+"""Scoring utilities for the urban comfort prototype."""
+import math
+import pandas as pd
+
 CRITERIA = {
     "transport": "Транспорт",
     "education": "Образование",
@@ -7,12 +11,45 @@ CRITERIA = {
     "leisure": "Досуг",
 }
 
+PROFILE_WEIGHTS = {
+    "student": {"transport": 25, "education": 25, "medical": 10, "green": 10, "daily": 20, "leisure": 10},
+    "couple": {"transport": 20, "education": 5, "medical": 10, "green": 20, "daily": 20, "leisure": 25},
+    "family": {"transport": 15, "education": 25, "medical": 20, "green": 20, "daily": 10, "leisure": 10},
+}
+
+
+def distance_score(distance_m, threshold_m):
+    """Convert distance to a provisional linear 0-100 score."""
+    if threshold_m <= 0 or not math.isfinite(float(threshold_m)):
+        raise ValueError("threshold_m должен быть конечным и больше нуля.")
+    if pd.isna(distance_m):
+        return float("nan")
+    return max(0.0, min(100.0, 100.0 * (1.0 - float(distance_m) / float(threshold_m))))
+
 
 def calculate_index(row, weights):
-    """Calculate a weighted comfort score from 0 to 100."""
-    total_weight = sum(weights.values())
+    """Weighted score; missing criteria are excluded and remaining weights renormalized.
 
-    if total_weight == 0:
+    A deliberate all-zero weight selection returns 0.0 for compatibility with
+    the app's zero-weight validation. If weights are positive but all scores
+    are missing, return NaN because no index can be supported by observations.
+    """
+    configured_weight = sum(
+        weights.get(key, 0) for key in CRITERIA
+        if weights.get(key, 0) > 0
+    )
+    if configured_weight == 0:
         return 0.0
 
-    return sum(row[key] * weights[key] for key in CRITERIA) / total_weight
+    available = [
+        (key, weights[key])
+        for key in CRITERIA
+        if key in weights
+        and key in row
+        and weights[key] > 0
+        and pd.notna(row[key])
+    ]
+    total_weight = sum(weight for _, weight in available)
+    if total_weight == 0:
+        return float("nan")
+    return sum(float(row[key]) * weight for key, weight in available) / total_weight

@@ -1,0 +1,2 @@
+﻿district_id,district_name,territory_type,boundary_source,boundary_source_url,source_name,source_url,verified_date,notes
+D001,Тестовая территория — заменить,microdistrict,,,Источник границ,,2026-10-20,Пример структуры; не подтверждённая граница

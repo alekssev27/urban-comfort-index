@@ -1,0 +1,2 @@
+﻿object_id,name,category,subcategory,address,district_id,latitude,longitude,source_name,source_url,verified_date,opening_status,access_notes,notes
+EXAMPLE_001,ПРИМЕР — удалить перед сдачей,school,primary_school,Проверенный адрес,D001,,,Источник данных,https://example.org,2026-10-20,unknown,,Демонстрационная строка; не реальные данные

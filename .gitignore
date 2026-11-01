@@ -20,10 +20,13 @@ htmlcov/
 # Секреты
 .env
 .env.*
+.streamlit/secrets.toml
 
 # Локальные данные, которые не следует публиковать
 data/raw/*
 !data/raw/.gitkeep
 
 data/processed/*
+!data/processed/grid_cells.geojson
+!data/processed/residential_comfort_scores.csv
 !data/processed/.gitkeep

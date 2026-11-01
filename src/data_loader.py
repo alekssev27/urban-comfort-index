@@ -1,58 +1,63 @@
+"""Загрузка реальных оценок и геометрии ячеек городской сетки."""
 from pathlib import Path
 
+import geopandas as gpd
 import pandas as pd
-
+import streamlit as st
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / "data"
-DEMO_SCORES_PATH = DATA_DIR / "demo_scores.csv"
+GRID_PATH = DATA_DIR / "processed" / "grid_cells.geojson"
+SCORES_PATH = DATA_DIR / "processed" / "residential_comfort_scores.csv"
 
-REQUIRED_SCORE_COLUMNS = [
-    "name",
-    "lat",
-    "lon",
-    "transport",
-    "education",
-    "medical",
-    "green",
-    "daily",
-    "leisure",
-]
+CRITERIA = {
+    "transport": "Транспорт",
+    "education": "Образование",
+    "medical": "Медицина",
+    "green": "Зелёные зоны",
+    "daily": "Повседневная инфраструктура",
+    "leisure": "Досуг",
+}
 
 
-def load_demo_scores() -> pd.DataFrame:
-    """Load the synthetic territory scores used by the current prototype."""
-    if not DEMO_SCORES_PATH.exists():
-        raise FileNotFoundError(
-            f"Не найден файл демонстрационных данных: {DEMO_SCORES_PATH}"
-        )
+@st.cache_data(show_spinner=False, ttl=3600)
+def load_real_scores(
+    grid_path: Path = GRID_PATH,
+    scores_path: Path = SCORES_PATH,
+) -> gpd.GeoDataFrame:
+    """Объединить геометрию сетки с оценками жилых ячеек."""
+    if not grid_path.exists():
+        raise FileNotFoundError(f"Не найден файл сетки: {grid_path}")
+    if not scores_path.exists():
+        raise FileNotFoundError(f"Не найден файл оценок: {scores_path}")
 
-    data = pd.read_csv(DEMO_SCORES_PATH, encoding="utf-8-sig")
+    grid = gpd.read_file(grid_path)
+    scores = pd.read_csv(scores_path, encoding="utf-8-sig")
 
-    missing = [column for column in REQUIRED_SCORE_COLUMNS if column not in data.columns]
+    for frame, name in ((grid, "GeoJSON сетки"), (scores, "CSV оценок")):
+        if "cell_id" not in frame.columns:
+            raise ValueError(f"В {name} отсутствует столбец cell_id.")
+
+    score_columns = [f"score_{key}" for key in CRITERIA]
+    distance_columns = [f"nearest_distance_{key}_m" for key in CRITERIA]
+    index_columns = [
+        "comfort_index_student",
+        "comfort_index_couple",
+        "comfort_index_family",
+    ]
+    required = score_columns + distance_columns + index_columns
+    missing = [column for column in required if column not in scores.columns]
     if missing:
-        raise ValueError(
-            "В data/demo_scores.csv отсутствуют обязательные столбцы: "
-            + ", ".join(missing)
-        )
+        raise ValueError("В CSV отсутствуют столбцы: " + ", ".join(missing))
+    if grid.crs is None:
+        raise ValueError("У GeoJSON сетки не указана система координат.")
 
-    if data.empty:
-        raise ValueError("Файл data/demo_scores.csv не содержит строк.")
+    scores = scores.drop_duplicates(subset=["cell_id"])
+    merged = grid.merge(scores, on="cell_id", how="inner", validate="one_to_one")
+    if merged.empty:
+        raise ValueError("Не удалось сопоставить ячейки по cell_id.")
 
-    numeric_columns = [
-        "lat", "lon", "transport", "education", "medical",
-        "green", "daily", "leisure",
-    ]
-    for column in numeric_columns:
-        data[column] = pd.to_numeric(data[column], errors="raise")
+    for column in required:
+        merged[column] = pd.to_numeric(merged[column], errors="coerce")
 
-    score_columns = [
-        "transport", "education", "medical", "green", "daily", "leisure"
-    ]
-    for column in score_columns:
-        if not data[column].between(0, 100).all():
-            raise ValueError(
-                f"Значения в столбце {column} должны быть в диапазоне от 0 до 100."
-            )
-
-    return data
+    return merged.to_crs("EPSG:4326")
