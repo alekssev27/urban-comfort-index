@@ -127,9 +127,9 @@ def calculate_leisure_accessibility(
     )
     if not nearby.empty:
         grouped = nearby.groupby("cell_id", sort=False)
-        result.loc[grouped.groups.keys(), "leisure_count_750m"] = (
-            grouped["facility_id"].nunique().astype(int)
-        )
+        counts_by_cell = grouped["facility_id"].nunique()
+        for cell_id, count in counts_by_cell.items():
+            result.at[cell_id, "leisure_count_750m"] = int(count)
         categories_by_cell = grouped["leisure_category"].agg(
             lambda values: sorted(set(values))
         )
