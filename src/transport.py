@@ -39,8 +39,8 @@ def _normalise_name(value: Any) -> str | None:
     if not isinstance(value, str) or not value.strip():
         return None
     name = value.casefold().replace("ё", "е")
-    name = re.sub(r"[^\\w\\s-]", " ", name, flags=re.UNICODE)
-    name = re.sub(r"\\s+", " ", name).strip()
+    name = re.sub(r"[^\w\s-]", " ", name, flags=re.UNICODE)
+    name = re.sub(r"\s+", " ", name).strip()
     changed = True
     while changed:
         changed = False
