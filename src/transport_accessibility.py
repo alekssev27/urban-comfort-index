@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import ast
 import json
+from collections.abc import Iterable
 
 import geopandas as gpd
 import pandas as pd
@@ -19,7 +20,7 @@ DEFAULT_DISTANCE_THRESHOLD_M = 2000.0
 def _normalise_modes(value) -> set[str]:
     if value is None:
         return set()
-    if isinstance(value, (list, tuple, set)):
+    if isinstance(value, Iterable) and not isinstance(value, (str, bytes, dict)):
         values = value
     elif isinstance(value, str):
         try:
