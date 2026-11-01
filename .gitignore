@@ -27,4 +27,6 @@ data/raw/*
 !data/raw/.gitkeep
 
 data/processed/*
+!data/processed/grid_cells.geojson
+!data/processed/residential_comfort_scores.csv
 !data/processed/.gitkeep
