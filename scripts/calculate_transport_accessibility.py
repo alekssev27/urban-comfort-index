@@ -19,8 +19,6 @@ def main() -> None:
     parser.add_argument("--grid", type=Path, default=GRID_PATH)
     parser.add_argument("--stops", type=Path, default=STOPS_PATH)
     parser.add_argument("--output", type=Path, default=OUTPUT_PATH)
-    parser.add_argument("--count-radius-m", type=float, default=500.0)
-    parser.add_argument("--distance-threshold-m", type=float, default=2000.0)
     args = parser.parse_args()
 
     for path in (args.grid, args.stops):
@@ -31,8 +29,6 @@ def main() -> None:
     stops = gpd.read_file(args.stops)
     result = calculate_transport_accessibility(
         grid, stops,
-        count_radius_m=args.count_radius_m,
-        distance_threshold_m=args.distance_threshold_m,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     result.to_csv(args.output, index=False, encoding="utf-8-sig")
