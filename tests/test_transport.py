@@ -102,3 +102,43 @@ def test_ignores_non_transport_features():
 def test_rejects_non_positive_merge_radius():
     with pytest.raises(ValueError):
         deduplicate_transport_features([], merge_radius_m=0)
+
+
+
+def test_merges_same_name_same_mode_across_opposite_directions():
+    items = [
+        feature(1, 58.98000, 53.40, {"public_transport": "platform", "bus": "yes"}, name="Улица Грязнова"),
+        feature(2, 58.98030, 53.40, {"public_transport": "stop_position", "bus": "yes"}, name="Улица Грязнова"),
+        feature(3, 58.98005, 53.40, {"highway": "bus_stop"}, name="Улица Грязнова"),
+        feature(4, 58.98035, 53.40, {"public_transport": "platform", "bus": "yes"}, name="Улица Грязнова"),
+    ]
+
+    result = deduplicate_transport_features(items, merge_radius_m=25)
+
+    assert len(result) == 1
+    assert result[0]["properties"]["member_count"] == 4
+    assert result[0]["properties"]["transport_modes"] == ["bus"]
+
+
+def test_does_not_merge_same_name_with_known_disjoint_modes():
+    items = [
+        feature(1, 58.98000, 53.40, {"public_transport": "platform", "bus": "yes"}, name="Улица Грязнова"),
+        feature(2, 58.98005, 53.40, {"public_transport": "platform", "railway": "tram_stop"}, name="Улица Грязнова"),
+    ]
+
+    result = deduplicate_transport_features(items, merge_radius_m=25)
+
+    assert len(result) == 2
+    assert {tuple(item["properties"]["transport_modes"]) for item in result} == {("bus",), ("tram",)}
+
+
+def test_feature_serving_multiple_modes_can_be_grouped_with_each_mode():
+    items = [
+        feature(1, 58.98000, 53.40, {"public_transport": "platform", "bus": "yes", "tram": "yes"}, name="Цирк"),
+        feature(2, 58.98005, 53.40, {"public_transport": "platform", "bus": "yes"}, name="Цирк"),
+    ]
+
+    result = deduplicate_transport_features(items, merge_radius_m=25)
+
+    assert len(result) == 1
+    assert result[0]["properties"]["transport_modes"] == ["bus", "tram"]
