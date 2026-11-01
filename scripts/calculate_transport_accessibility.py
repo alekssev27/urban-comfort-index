@@ -3,12 +3,16 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 import geopandas as gpd
 
 from src.transport_accessibility import calculate_transport_accessibility
 
-ROOT = Path(__file__).resolve().parents[1]
 GRID_PATH = ROOT / "data/processed/grid_cells.geojson"
 STOPS_PATH = ROOT / "data/processed/transport_stops_deduplicated.geojson"
 OUTPUT_PATH = ROOT / "data/processed/transport_accessibility.csv"
