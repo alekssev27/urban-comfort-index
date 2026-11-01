@@ -45,8 +45,8 @@ def test_complete_link_prevents_chaining_three_stops():
     # A-B and B-C are close, but A-C are farther apart than 25 metres.
     items = [
         feature(1, 58.98000, 53.40, {"highway": "bus_stop"}),
-        feature(2, 58.98015, 53.40, {"public_transport": "platform"}),
-        feature(3, 58.98030, 53.40, {"highway": "bus_stop"}),
+        feature(2, 58.98025, 53.40, {"public_transport": "platform"}),
+        feature(3, 58.98050, 53.40, {"highway": "bus_stop"}),
     ]
 
     result = deduplicate_transport_features(items, merge_radius_m=25)
