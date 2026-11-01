@@ -155,7 +155,8 @@ def main():
         "name": "magnitogorsk_residential_buildings",
         "metadata": {
             "retrieved_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "source": "OpenStreetMap via Overpass API",\n            "source_url": response.url,
+            "source": "OpenStreetMap via Overpass API",
+            "source_url": response.url,
             "license": "ODbL 1.0",
             "building_values": sorted(RESIDENTIAL_BUILDING_VALUES),
         },
