@@ -170,7 +170,7 @@ def deduplicate_transport_features(
         for feature, member_point in group:
             props = feature.get("properties", {})
             tags = props.get("tags") or {}
-            modes.update(_transport_modes(tags))
+            modes.update(_feature_modes(feature))
             member_lon, member_lat = inverse.transform(member_point.x, member_point.y)
             members.append({
                 "osm_type": props.get("osm_type"),
