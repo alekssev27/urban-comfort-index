@@ -6,7 +6,10 @@ from pathlib import Path
 
 import geopandas as gpd
 
-from src.green_accessibility import (\n    calculate_green_accessibility,\n    dissolve_green_areas,\n)
+from src.green_accessibility import (
+    calculate_green_accessibility,
+    dissolve_green_areas,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 GRID_PATH = ROOT / "data/processed/grid_cells.geojson"
