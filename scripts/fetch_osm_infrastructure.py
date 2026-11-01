@@ -30,6 +30,8 @@ CATEGORY_RULES = [
     ("green_additional", "landuse", {"grass"}),
     ("leisure", "amenity", {"cinema", "theatre", "arts_centre", "community_centre", "library", "cafe", "restaurant", "fast_food", "bar"}),
     ("leisure", "leisure", {"sports_centre", "fitness_centre", "stadium", "swimming_pool"}),
+    ("leisure", "tourism", {"museum"}),
+    ("leisure", "shop", {"mall"}),
 ]
 
 def assign_category(tags: dict[str, Any]) -> str | None:
@@ -165,6 +167,8 @@ def main():
         f'nwr(poly:"{poly}")[amenity~"^(school|kindergarten|college|university|music_school|hospital|clinic|doctors|dentist|pharmacy|post_office|bank|atm|marketplace|cinema|theatre|arts_centre|community_centre|library|cafe|restaurant|fast_food|bar)$"];'
         f'nwr(poly:"{poly}")[healthcare~"^(hospital|clinic|doctor|dentist|centre)$"];'
         f'nwr(poly:"{poly}")[shop~"^(supermarket|convenience|greengrocer|bakery|butcher|chemist|general|food)$"];'
+        f'nwr(poly:"{poly}")[tourism="museum"];'
+        f'nwr(poly:"{poly}")[shop="mall"];'
         f'nwr(poly:"{poly}")[leisure~"^(park|garden|playground|nature_reserve|sports_centre|fitness_centre|stadium|swimming_pool)$"];'
         f'nwr(poly:"{poly}")[landuse~"^(grass|recreation_ground|forest)$"];'
         f');out geom tags;'
