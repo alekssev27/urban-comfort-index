@@ -2,14 +2,18 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 import geopandas as gpd
 import pandas as pd
 
 from src.dataset_builder import CRITERION_FILES, build_accessibility_dataset
 
-ROOT = Path(__file__).resolve().parents[1]
 GRID_PATH = ROOT / "data/processed/grid_cells.geojson"
 PROCESSED_DIR = ROOT / "data/processed"
 OUTPUT_PATH = PROCESSED_DIR / "residential_comfort_scores.csv"
