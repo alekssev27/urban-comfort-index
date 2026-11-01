@@ -6,7 +6,7 @@ from pathlib import Path
 
 import geopandas as gpd
 
-from src.green_accessibility import calculate_green_accessibility
+from src.green_accessibility import (\n    calculate_green_accessibility,\n    dissolve_green_areas,\n)
 
 ROOT = Path(__file__).resolve().parents[1]
 GRID_PATH = ROOT / "data/processed/grid_cells.geojson"
@@ -39,9 +39,8 @@ def main() -> None:
     valid = result["score_green"].dropna()
     print(f"Ячеек обработано: {len(result)}")
     print(f"Исходных зелёных полигонов: {len(green)}")
-    print(f"Объединённых зелёных территорий: "
-          f"{int(result['green_area_count_1500m'].max()) if not result.empty else 0} "
-          "(максимум в радиусе одной ячейки)")
+    dissolved = dissolve_green_areas(green)
+    print(f"Объединённых зелёных территорий: {len(dissolved)}")
     print(f"Ячеек с рассчитанной оценкой: {len(valid)}")
     if not valid.empty:
         print(f"Средняя оценка зелёных зон: {valid.mean():.2f}")
