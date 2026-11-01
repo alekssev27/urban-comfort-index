@@ -3,6 +3,11 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 import geopandas as gpd
 
@@ -11,7 +16,6 @@ from src.green_accessibility import (
     dissolve_green_areas,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
 GRID_PATH = ROOT / "data/processed/grid_cells.geojson"
 GREEN_PATH = ROOT / "data/raw/green_areas.geojson"
 OUTPUT_PATH = ROOT / "data/processed/green_accessibility.csv"
