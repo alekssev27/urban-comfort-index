@@ -6,6 +6,8 @@ double-counting the same physical green space. Distances are straight-line.
 """
 from __future__ import annotations
 
+import math
+
 import geopandas as gpd
 import pandas as pd
 from shapely.geometry import Polygon, MultiPolygon, GeometryCollection
@@ -171,9 +173,7 @@ def calculate_green_accessibility(
 
         for cell_id, group in nearby.groupby("cell_id", sort=False):
             contributions = group["contribution"].tolist()
-            score = 100.0 * (1.0 - float(
-                __import__("math").prod(1.0 - value for value in contributions)
-            ))
+            score = 100.0 * (1.0 - math.prod(1.0 - value for value in contributions))
             result.at[cell_id, "score_green"] = min(100.0, max(0.0, score))
             result.at[cell_id, "green_area_count_1500m"] = len(group)
             result.at[cell_id, "green_area_total_m2_1500m"] = float(
