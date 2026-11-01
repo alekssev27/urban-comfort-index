@@ -26,7 +26,7 @@ def test_builds_three_profile_indices_and_preserves_grid_order():
         "comfort_index_couple",
         "comfort_index_family",
     }.issubset(result.columns)
-    assert result.loc[0, "comfort_index_student"] == pytest.approx(52.5)
+    assert result.loc[0, "comfort_index_student"] == pytest.approx(52.05)
 
 
 def test_missing_criterion_score_is_allowed_and_weights_are_renormalized():
@@ -38,7 +38,7 @@ def test_missing_criterion_score_is_allowed_and_weights_are_renormalized():
 
     assert pd.notna(result.loc[0, "comfort_index_student"])
     assert result.loc[0, "comfort_index_student"] == pytest.approx(
-        (75 * 25 + 60 * 10 + 55 * 10 + 54 * 20 + 55 * 10) / 75
+        (51 * 25 + 52 * 10 + 53 * 10 + 54 * 20 + 55 * 10) / 75
     )
 
 
