@@ -25,26 +25,49 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-#MainMenu, footer {visibility: hidden;}
-[data-testid="stSidebar"] {display: none;}
-.block-container {max-width: 1900px; padding: 1.25rem 2.2rem 2rem;}
-header[data-testid="stHeader"] {background:#fff !important; height:3.25rem; visibility:visible;}
-.top-brand {font-size: 1.65rem; font-weight: 800; letter-spacing: -.06em; color: #20242b; padding-top: .35rem;}
-.top-location {font-size: .82rem; color: #8a9099; margin-top: -.25rem;}
-.profile-pill {display:inline-block; background:#f1f5f2; color:#397b54; border-radius:999px; padding:9px 15px; font-size:.9rem; font-weight:600;}
-div[data-testid="stButton"] button {position:relative;background:transparent !important;border:0 !important;border-radius:0 !important;color:#343943 !important;font-weight:600;box-shadow:none !important;padding:.55rem .35rem .8rem !important;}
-div[data-testid="stButton"] button:after {content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:#252a33;transform:scaleX(0);transition:transform .18s ease;}
-div[data-testid="stButton"] button:hover:after {transform:scaleX(1);}
-h1,h2,h3 {letter-spacing:-.045em; color:#252a33;}
-[data-testid="stMetric"] {background:#fff; border:1px solid #e9edf1; border-radius:18px; padding:16px 18px;}
-[data-testid="stVerticalBlockBorderWrapper"] {border-radius:18px; border-color:#e9edf1;}
-.stButton button, .stLinkButton a {border-radius:12px; min-height:2.65rem;}
-[data-testid="stDataFrame"] {border:1px solid #edf0f2; border-radius:12px; overflow:hidden;}
-.map-heading {font-size:1.45rem; font-weight:750; letter-spacing:-.04em; margin-bottom:.65rem;}
-.muted-copy {color:#858b94; font-size:.92rem;}
-@media (max-width: 900px) {
- .block-container {padding:1rem .8rem;}
-}
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap');
+:root{--ink:#17231f;--muted:#75817b;--green:#245c49;--green2:#367a60;--lime:#d7f36b;--paper:#f5f7f3;--line:#e3e9e2;--card:#fff}
+html,body,[class*="css"]{font-family:'DM Sans',sans-serif;color:var(--ink)}
+.stApp{background:var(--paper)}#MainMenu,footer{visibility:hidden}[data-testid="stSidebar"]{display:none}
+header[data-testid="stHeader"]{background:rgba(245,247,243,.9)!important;backdrop-filter:blur(14px);height:3rem}
+.block-container{max-width:1680px;padding:1.2rem 2.4rem 3rem}
+h1,h2,h3{font-family:'Manrope',sans-serif;color:var(--ink);letter-spacing:-.055em;font-weight:800}
+h1{font-size:clamp(2rem,4vw,3.5rem)}h2{font-size:2rem}h3{font-size:1.35rem}
+.top-brand{font-family:'Manrope',sans-serif;font-size:1.85rem;font-weight:800;letter-spacing:-.075em;color:var(--ink);line-height:1}
+.top-brand:before{content:"";display:inline-block;width:11px;height:11px;background:var(--lime);border:2px solid var(--green);border-radius:4px;transform:rotate(12deg);margin-right:9px}
+.top-location{font-size:.75rem;color:var(--muted);margin:.3rem 0 0 23px}
+.profile-pill{display:inline-flex;align-items:center;gap:7px;background:#e8f0e9;color:var(--green);border:1px solid #d8e6d9;border-radius:999px;padding:9px 14px;font-size:.82rem;font-weight:700;white-space:nowrap}
+.profile-pill:before{content:"";width:7px;height:7px;background:#5c9b70;border-radius:50%;box-shadow:0 0 0 3px #d1e6d5}
+div[data-testid="stButton"] button{border:1px solid transparent!important;border-radius:999px!important;background:transparent!important;color:#68756e!important;font-weight:700!important;box-shadow:none!important;min-height:2.55rem;transition:all .22s ease!important}
+div[data-testid="stButton"] button:hover{background:#e9eee8!important;color:var(--ink)!important;border-color:#dfe7df!important;transform:translateY(-1px)}
+div[data-testid="stButton"] button[kind="primary"]{background:var(--green)!important;color:#fff!important;border-color:var(--green)!important;box-shadow:0 7px 18px rgba(36,92,73,.16)!important}
+div[data-testid="stButton"] button[kind="primary"]:hover{background:#194b3a!important;box-shadow:0 10px 24px rgba(36,92,73,.24)!important}
+[data-testid="stMetric"]{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:17px 20px;box-shadow:0 5px 18px rgba(25,50,37,.035)}
+[data-testid="stMetricLabel"]{color:var(--muted)!important;font-weight:600}[data-testid="stMetricValue"]{font-family:'Manrope',sans-serif;font-weight:800;color:var(--green)!important;letter-spacing:-.05em}
+[data-testid="stVerticalBlockBorderWrapper"]{background:var(--card);border-radius:22px;border-color:var(--line);box-shadow:0 8px 28px rgba(25,50,37,.035)}
+[data-testid="stDataFrame"]{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff}
+.stProgress>div>div>div>div{background:var(--green)}.stProgress>div>div{background:#e8eee7;border-radius:99px}
+[data-testid="stExpander"]{border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.65)}
+[data-testid="stSelectbox"] [data-baseweb="select"]>div,[data-testid="stMultiSelect"] [data-baseweb="select"]>div{border-radius:12px;border-color:var(--line);background:#fff}
+[data-testid="stForm"]{border:0!important}[data-testid="stAlert"]{border-radius:14px}
+.stLinkButton a{border-radius:999px!important;min-height:2.6rem;font-weight:700;border-color:var(--line)!important}
+.map-heading{font-family:'Manrope',sans-serif;font-size:1.55rem;font-weight:800;letter-spacing:-.055em;margin:0 0 .8rem;color:var(--ink)}
+.muted-copy{color:var(--muted);font-size:.92rem}
+.hero-shell{position:relative;overflow:hidden;min-height:450px;padding:3.2rem 3rem;border-radius:30px;background:linear-gradient(125deg,#173f32 0%,#245c49 58%,#39785b 100%);color:#fff;display:flex;flex-direction:column;justify-content:center;box-shadow:0 24px 60px rgba(25,67,49,.18)}
+.hero-shell:before{content:"";position:absolute;width:440px;height:440px;right:-90px;top:-150px;border:1px solid rgba(255,255,255,.15);border-radius:50%;box-shadow:0 0 0 45px rgba(255,255,255,.035),0 0 0 95px rgba(255,255,255,.025)}
+.hero-shell:after{content:"";position:absolute;width:170px;height:170px;right:95px;bottom:-95px;background:var(--lime);border-radius:38px;transform:rotate(28deg);opacity:.95}
+.hero-kicker{font-size:.75rem;text-transform:uppercase;letter-spacing:.16em;color:#c8e0cb;font-weight:800;margin-bottom:1rem}
+.hero-title{font-family:'Manrope',sans-serif;position:relative;z-index:1;font-size:clamp(2.5rem,5vw,4.6rem);font-weight:800;line-height:1.02;letter-spacing:-.075em;color:#fff;margin:0 0 1.2rem}
+.hero-subtitle{position:relative;z-index:1;max-width:590px;font-size:1.08rem;line-height:1.7;color:rgba(255,255,255,.78);margin-bottom:1.5rem}
+.hero-tag{position:relative;z-index:1;display:inline-flex;width:max-content;padding:9px 13px;border:1px solid rgba(255,255,255,.25);border-radius:999px;color:#e5f0df;font-size:.78rem;font-weight:700}
+.login-panel{padding:.5rem .2rem}.login-heading{font-family:'Manrope',sans-serif;font-size:1.8rem;font-weight:800;letter-spacing:-.06em;margin-bottom:.3rem}
+.section-eyebrow{font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#7c8c80}
+.page-intro{padding:.5rem 0 1.2rem}.page-intro h2{margin:.25rem 0 .35rem}.page-intro p{color:var(--muted);margin:0}
+.nav-active button{background:#e7eee6!important;color:var(--green)!important}
+@keyframes mesto-rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.block-container [data-testid="stVerticalBlock"]{animation:mesto-rise .42s cubic-bezier(.2,.7,.2,1) both}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}.block-container [data-testid="stVerticalBlock"]{animation:none}}
+@media(max-width:900px){.block-container{padding:.9rem .85rem 2rem}.hero-shell{min-height:360px;padding:2rem 1.5rem;border-radius:22px}.hero-title{font-size:2.55rem}.top-brand{font-size:1.5rem}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -247,67 +270,49 @@ if "user_profile" not in st.session_state:
 
 # ---------- Экран входа ----------
 if not st.session_state.authenticated:
-    st.markdown(
-        """
-        <style>
-        .block-container {max-width: 1050px; padding-top: 3rem; padding-bottom: 3rem;}
-        .hero-title {font-size: 2.65rem; font-weight: 750; line-height: 1.15;
-                     letter-spacing: -1px; margin-bottom: 1rem;}
-        .hero-subtitle {font-size: 1.1rem; line-height: 1.7; color: #64748b;
-                        margin-bottom: 1.5rem;}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-    left, right = st.columns([1.15, 0.85], gap="large", vertical_alignment="center")
+    st.markdown('<style>.block-container{max-width:1320px;padding-top:2.2rem;padding-bottom:3rem;}</style>', unsafe_allow_html=True)
+
+    left, right = st.columns([1.2, 0.8], gap="large", vertical_alignment="center")
     with left:
-        st.markdown("### Mesto")
         st.markdown(
-            '<div class="hero-title">Найдите территорию,<br>которая подходит именно вам.</div>',
+            '<div class="hero-shell"><div class="hero-kicker">MESTO · ГОРОДСКАЯ СРЕДА</div>'
+            '<div class="hero-title">Город ближе.<br>Жизнь удобнее.</div>'
+            '<div class="hero-subtitle">Найдите жилую территорию Магнитогорска, '
+            'которая совпадает с вашим ритмом жизни. Сравнивайте инфраструктуру '
+            'не по ощущениям, а по данным.</div>'
+            '<div class="hero-tag">250 × 250 м · интерактивная карта</div></div>',
             unsafe_allow_html=True,
         )
-        st.markdown(
-            '<div class="hero-subtitle">Сравнивайте жилые ячейки Магнитогорска '
-            'по доступности транспорта, образования, медицины, зелёных зон, '
-            'повседневной инфраструктуры и досуга.</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown("**Что вы получите:**")
-        st.markdown(
-            "- Персональный рейтинг жилых ячеек.\n"
-            "- Интерактивную карту реальных географических ячеек.\n"
-            "- Сравнение территорий по шести критериям."
-        )
-        st.caption("Учебный прототип · Магнитогорск")
     with right:
-        with st.container(border=True):
-            st.subheader("Добро пожаловать")
-            st.write("Выберите жизненный сценарий для настройки рекомендаций.")
-            with st.form("login_form"):
-                profile = st.radio(
-                    "Какой сценарий вам ближе?",
-                    options=list(PROFILES),
-                    captions=[
-                        "Учёба, транспорт и повседневные расходы",
-                        "Отдых, кафе и городская жизнь",
-                        "Школы, медицина и зелёные зоны",
-                    ],
-                )
-                email = st.text_input("Электронная почта", placeholder="name@example.com")
-                submitted = st.form_submit_button(
-                    "Продолжить", type="primary", use_container_width=True
-                )
-                if submitted:
-                    email = email.strip()
-                    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
-                        st.error("Введите корректный адрес электронной почты.")
-                    else:
-                        st.session_state.user_email = email
-                        st.session_state.user_profile = profile
-                        st.session_state.authenticated = True
-                        for key in CRITERIA:
-                            st.session_state.pop(f"weight_{key}", None)
-                        st.rerun()
+        st.markdown(
+            '<div class="login-panel"><div class="section-eyebrow">ВАШ ГОРОДСКОЙ СЦЕНАРИЙ</div>'
+            '<div class="login-heading">Добро пожаловать в Mesto</div></div>',
+            unsafe_allow_html=True,
+        )
+        st.write("Выберите приоритеты — мы настроим рекомендации под ваш образ жизни.")
+        with st.form("login_form"):
+            profile = st.radio(
+                "Какой сценарий вам ближе?",
+                options=list(PROFILES),
+                captions=[
+                    "Учёба, транспорт и повседневные расходы",
+                    "Отдых, кафе и городская жизнь",
+                    "Школы, медицина и зелёные зоны",
+                ],
+            )
+            email = st.text_input("Электронная почта", placeholder="name@example.com")
+            submitted = st.form_submit_button("Продолжить", type="primary", use_container_width=True)
+            if submitted:
+                email = email.strip()
+                if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+                    st.error("Введите корректный адрес электронной почты.")
+                else:
+                    st.session_state.user_email = email
+                    st.session_state.user_profile = profile
+                    st.session_state.authenticated = True
+                    for key in CRITERIA:
+                        st.session_state.pop(f"weight_{key}", None)
+                    st.rerun()
     st.stop()
 
 # ---------- Основное приложение ----------
@@ -343,6 +348,18 @@ with account_col:
 st.divider()
 
 page = st.session_state["main_page"]
+page_descriptions = {
+    "Карта": ("ИССЛЕДУЙТЕ ГОРОД", "Карта жилых территорий", "Найдите комфортные места на карте и изучите инфраструктуру вокруг них."),
+    "Рейтинг": ("РЕЙТИНГ", "Территории с высоким индексом", "Изучите лидеров для жизненного сценария «" + profile.lower() + "»."),
+    "Сравнение": ("СРАВНЕНИЕ", "Сопоставьте территории", "Посмотрите, где сильнее транспорт, медицина, зелёные зоны и повседневные сервисы."),
+    "О проекте": ("МЕТОДОЛОГИЯ", "Как работает Mesto", "Данные, критерии и ограничения индекса городской комфортности."),
+}
+eyebrow, page_title, page_subtitle = page_descriptions[page]
+st.markdown(
+    f'<div class="page-intro"><div class="section-eyebrow">{eyebrow}</div>'
+    f'<h2>{page_title}</h2><p>{page_subtitle}</p></div>',
+    unsafe_allow_html=True,
+)
 thresholds = {key: 0 for key in CRITERIA}
 if page == "Карта":
     with st.expander("Фильтры по инфраструктуре", expanded=False):
