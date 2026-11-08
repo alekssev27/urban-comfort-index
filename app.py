@@ -304,7 +304,7 @@ if not st.session_state.authenticated:
             submitted = st.form_submit_button("Продолжить", type="primary", use_container_width=True)
             if submitted:
                 email = email.strip()
-                if not re.fullmatch(r"[^@\\s]+@[^@\\s]+\\.[^@\\s]+", email):
+                if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
                     st.error("Введите корректный адрес электронной почты.")
                 else:
                     st.session_state.user_email = email
