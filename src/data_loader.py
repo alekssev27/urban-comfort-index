@@ -24,6 +24,7 @@ CRITERIA = {
 def load_real_scores(
     grid_path: Path = GRID_PATH,
     scores_path: Path = SCORES_PATH,
+    data_signature=None,
 ) -> gpd.GeoDataFrame:
     """Объединить геометрию сетки с оценками жилых ячеек."""
     if not grid_path.exists():

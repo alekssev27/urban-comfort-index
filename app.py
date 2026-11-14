@@ -8,13 +8,15 @@ from urllib.parse import quote_plus
 import folium
 import geopandas as gpd
 import pandas as pd
-import plotly.express as px
 import streamlit as st
 from branca.colormap import LinearColormap
 from streamlit_folium import st_folium
 
 from src.data_loader import CRITERIA, load_real_scores
-from src.scoring import calculate_index
+from src.map_data import prepare_scores, score_color, build_cell_clusters, assign_cluster_street_names
+from src.map_data import load_street_segments as _load_street_segments
+
+load_street_segments = st.cache_data(show_spinner=False, max_entries=4)(_load_street_segments)
 
 st.set_page_config(
     page_title="Mesto",
@@ -23,208 +25,13 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap');
-:root{--ink:#17231f;--muted:#75817b;--green:#245c49;--green2:#367a60;--lime:#d7f36b;--paper:#f5f7f3;--line:#e3e9e2;--card:#fff}
-html,body,[class*="css"]{font-family:'DM Sans',sans-serif;color:var(--ink)}
-.stApp{background:var(--paper)}#MainMenu,footer{visibility:hidden}[data-testid="stSidebar"]{display:none}
-header[data-testid="stHeader"]{background:rgba(245,247,243,.9)!important;backdrop-filter:blur(14px);height:3rem}
-.block-container{max-width:1680px;padding:1.2rem 2.4rem 3rem}
-h1,h2,h3{font-family:'Manrope',sans-serif;color:var(--ink);letter-spacing:-.055em;font-weight:800}
-h1{font-size:clamp(2rem,4vw,3.5rem)}h2{font-size:2rem}h3{font-size:1.35rem}
-.top-brand{font-family:'Manrope',sans-serif;font-size:1.85rem;font-weight:800;letter-spacing:-.075em;color:var(--ink);line-height:1}
-.top-brand:before{content:"";display:inline-block;width:11px;height:11px;background:var(--lime);border:2px solid var(--green);border-radius:4px;transform:rotate(12deg);margin-right:9px}
-.top-location{font-size:.75rem;color:var(--muted);margin:.3rem 0 0 23px}
-.profile-pill{display:inline-flex;align-items:center;gap:7px;background:#e8f0e9;color:var(--green);border:1px solid #d8e6d9;border-radius:999px;padding:9px 14px;font-size:.82rem;font-weight:700;white-space:nowrap}
-.profile-pill:before{content:"";width:7px;height:7px;background:#5c9b70;border-radius:50%;box-shadow:0 0 0 3px #d1e6d5}
-div[data-testid="stButton"] button{border:1px solid transparent!important;border-radius:999px!important;background:transparent!important;color:#68756e!important;font-weight:700!important;box-shadow:none!important;min-height:2.55rem;transition:all .22s ease!important}
-div[data-testid="stButton"] button:hover{background:#e9eee8!important;color:var(--ink)!important;border-color:#dfe7df!important;transform:translateY(-1px)}
-div[data-testid="stButton"] button[kind="primary"]{background:var(--green)!important;color:#fff!important;border-color:var(--green)!important;box-shadow:0 7px 18px rgba(36,92,73,.16)!important}
-div[data-testid="stButton"] button[kind="primary"]:hover{background:#194b3a!important;box-shadow:0 10px 24px rgba(36,92,73,.24)!important}
-[data-testid="stMetric"]{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:17px 20px;box-shadow:0 5px 18px rgba(25,50,37,.035)}
-[data-testid="stMetricLabel"]{color:var(--muted)!important;font-weight:600}[data-testid="stMetricValue"]{font-family:'Manrope',sans-serif;font-weight:800;color:var(--green)!important;letter-spacing:-.05em}
-[data-testid="stVerticalBlockBorderWrapper"]{background:var(--card);border-radius:22px;border-color:var(--line);box-shadow:0 8px 28px rgba(25,50,37,.035)}
-[data-testid="stDataFrame"]{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff}
-.stProgress>div>div>div>div{background:var(--green)}.stProgress>div>div{background:#e8eee7;border-radius:99px}
-[data-testid="stExpander"]{border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.65)}
-[data-testid="stSelectbox"] [data-baseweb="select"]>div,[data-testid="stMultiSelect"] [data-baseweb="select"]>div{border-radius:12px;border-color:var(--line);background:#fff}
-[data-testid="stForm"]{border:0!important}[data-testid="stAlert"]{border-radius:14px}
-.stLinkButton a{border-radius:999px!important;min-height:2.6rem;font-weight:700;border-color:var(--line)!important}
-.map-heading{font-family:'Manrope',sans-serif;font-size:1.55rem;font-weight:800;letter-spacing:-.055em;margin:0 0 .8rem;color:var(--ink)}
-.muted-copy{color:var(--muted);font-size:.92rem}
-.hero-shell{position:relative;overflow:hidden;min-height:450px;padding:3.2rem 3rem;border-radius:30px;background:linear-gradient(125deg,#173f32 0%,#245c49 58%,#39785b 100%);color:#fff;display:flex;flex-direction:column;justify-content:center;box-shadow:0 24px 60px rgba(25,67,49,.18)}
-.hero-shell:before{content:"";position:absolute;width:440px;height:440px;right:-90px;top:-150px;border:1px solid rgba(255,255,255,.15);border-radius:50%;box-shadow:0 0 0 45px rgba(255,255,255,.035),0 0 0 95px rgba(255,255,255,.025)}
-.hero-shell:after{content:"";position:absolute;width:170px;height:170px;right:95px;bottom:-95px;background:var(--lime);border-radius:38px;transform:rotate(28deg);opacity:.95}
-.hero-kicker{font-size:.75rem;text-transform:uppercase;letter-spacing:.16em;color:#c8e0cb;font-weight:800;margin-bottom:1rem}
-.hero-title{font-family:'Manrope',sans-serif;position:relative;z-index:1;font-size:clamp(2.5rem,5vw,4.6rem);font-weight:800;line-height:1.02;letter-spacing:-.075em;color:#fff;margin:0 0 1.2rem}
-.hero-subtitle{position:relative;z-index:1;max-width:590px;font-size:1.08rem;line-height:1.7;color:rgba(255,255,255,.78);margin-bottom:1.5rem}
-.hero-tag{position:relative;z-index:1;display:inline-flex;width:max-content;padding:9px 13px;border:1px solid rgba(255,255,255,.25);border-radius:999px;color:#e5f0df;font-size:.78rem;font-weight:700}
-.login-panel{padding:.5rem .2rem}.login-heading{font-family:'Manrope',sans-serif;font-size:1.8rem;font-weight:800;letter-spacing:-.06em;margin-bottom:.3rem}
-.section-eyebrow{font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#7c8c80}
-.page-intro{padding:.5rem 0 1.2rem}.page-intro h2{margin:.25rem 0 .35rem}.page-intro p{color:var(--muted);margin:0}
-.nav-active button{background:#e7eee6!important;color:var(--green)!important}
-@keyframes mesto-rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-.block-container [data-testid="stVerticalBlock"]{animation:mesto-rise .42s cubic-bezier(.2,.7,.2,1) both}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}.block-container [data-testid="stVerticalBlock"]{animation:none}}
-@media(max-width:900px){.block-container{padding:.9rem .85rem 2rem}.hero-shell{min-height:360px;padding:2rem 1.5rem;border-radius:22px}.hero-title{font-size:2.55rem}.top-brand{font-size:1.5rem}}
-</style>
-""", unsafe_allow_html=True)
+st.markdown(f"<style>{(Path(__file__).parent / 'assets/theme.css').read_text()}</style>", unsafe_allow_html=True)
 
 PROFILES = {
     "Студент": {"transport": 25, "education": 25, "medical": 10, "green": 10, "daily": 20, "leisure": 10},
     "Пара": {"transport": 20, "education": 5, "medical": 10, "green": 20, "daily": 20, "leisure": 25},
     "Семья с детьми": {"transport": 15, "education": 25, "medical": 20, "green": 20, "daily": 10, "leisure": 10},
 }
-
-
-def prepare_scores(raw_data, weights):
-    """Подготовить оценки критериев и рассчитать индекс с текущими весами."""
-    data = raw_data.copy()
-    for key in CRITERIA:
-        data[key] = data[f"score_{key}"]
-    data["comfort_index"] = data.apply(
-        lambda row: calculate_index(row, weights), axis=1
-    )
-    return data.sort_values("comfort_index", ascending=False).reset_index(drop=True)
-
-
-def score_color(value, color_map):
-    if pd.isna(value):
-        return "#9ca3af"
-    return color_map(float(value))
-
-
-@st.cache_data(show_spinner=False, ttl=3600)
-def load_street_segments(streets_signature=None):
-    """Загрузить локальный слой улиц, подготовленный отдельным OSM-скриптом."""
-    path = Path("data/raw/streets_osm.geojson")
-    if not path.exists():
-        return None
-    try:
-        streets = gpd.read_file(path)
-        if streets.crs is None:
-            streets = streets.set_crs("EPSG:4326")
-        return streets.to_crs("EPSG:32640")
-    except Exception:
-        return None
-
-
-def assign_cluster_street_names(clusters, streets):
-    """Назначить территории название любой подходящей улицы из OSM."""
-    if clusters.empty:
-        return clusters
-
-    named_streets = (
-        streets[
-            streets["name"].notna()
-            & streets["name"].astype(str).str.strip().ne("")
-        ].copy()
-        if streets is not None and not streets.empty and "name" in streets.columns
-        else None
-    )
-
-    display_names = []
-    for row in clusters.itertuples():
-        display_name = "Улица не определена по OSM"
-
-        if named_streets is not None and not named_streets.empty:
-            footprint = gpd.GeoSeries(
-                [row.footprint], crs="EPSG:4326"
-            ).to_crs("EPSG:32640").iloc[0]
-
-            # Берём первую попавшуюся именованную улицу внутри контура.
-            candidates = named_streets[
-                named_streets.geometry.intersects(footprint)
-            ]
-
-            if not candidates.empty:
-                display_name = str(candidates.iloc[0]["name"]).strip()
-            else:
-                # Если внутри контура улиц нет, показываем ближайшую как ориентир.
-                distances = named_streets.geometry.distance(footprint)
-                nearest_index = distances.idxmin()
-                nearest_name = str(named_streets.loc[nearest_index, "name"]).strip()
-                display_name = f"Рядом с улицей {nearest_name}"
-
-        display_names.append(display_name)
-
-    result = clusters.copy()
-    result["display_name"] = display_names
-    return result
-
-def build_cell_clusters(frame, max_score_gap=10.0, max_cells=8):
-    """Объединить соседние ячейки с ограничением диапазона оценок и размера группы."""
-    projected = frame.to_crs("EPSG:32640").reset_index(drop=True)
-    geometries = projected.geometry
-    scores = projected["comfort_index"].astype(float).tolist()
-    spatial_index = projected.sindex
-    visited = set()
-    clusters = []
-
-    for seed in sorted(range(len(projected)), key=lambda i: scores[i], reverse=True):
-        if seed in visited or pd.isna(scores[seed]):
-            continue
-
-        members = [seed]
-        visited.add(seed)
-        pending = [seed]
-        min_score = max_score = scores[seed]
-
-        while pending and len(members) < max_cells:
-            current = pending.pop()
-            try:
-                candidates = spatial_index.query(
-                    geometries.iloc[current], predicate="touches"
-                )
-            except TypeError:
-                candidates = spatial_index.intersection(
-                    geometries.iloc[current].bounds
-                )
-
-            for candidate in candidates:
-                candidate = int(candidate)
-                if candidate in visited or pd.isna(scores[candidate]):
-                    continue
-                if not geometries.iloc[current].touches(geometries.iloc[candidate]):
-                    continue
-
-                proposed_min = min(min_score, scores[candidate])
-                proposed_max = max(max_score, scores[candidate])
-                if proposed_max - proposed_min <= max_score_gap:
-                    visited.add(candidate)
-                    members.append(candidate)
-                    pending.append(candidate)
-                    min_score, max_score = proposed_min, proposed_max
-
-        group = projected.iloc[members].copy()
-        footprint_projected = group.geometry.unary_union
-        center_projected = footprint_projected.centroid
-        footprint = gpd.GeoSeries(
-            [footprint_projected], crs=projected.crs
-        ).to_crs("EPSG:4326").iloc[0]
-        center = footprint.centroid
-        clusters.append({
-            "cluster_id": len(clusters),
-            "cell_ids": group["cell_id"].astype(str).tolist(),
-            "representative_cell": group.loc[group["comfort_index"].idxmax(), "cell_id"],
-            "cell_count": len(group),
-            "comfort_index": float(group["comfort_index"].mean()),
-            "score_min": float(group["comfort_index"].min()),
-            "score_max": float(group["comfort_index"].max()),
-            "geometry": center,
-            "footprint": footprint,
-            **{
-                f"score_{key}": group[f"score_{key}"].mean()
-                for key in CRITERIA
-            },
-            **{
-                f"nearest_distance_{key}_m": group[f"nearest_distance_{key}_m"].mean()
-                for key in CRITERIA
-            },
-        })
-
-    return pd.DataFrame(clusters)
 
 
 def _file_signature(path):
@@ -239,11 +46,11 @@ def _file_signature(path):
 @st.cache_data(show_spinner=False)
 def get_profile_scores(profile_name, data_signature):
     """Рассчитать оценки один раз на профиль и версию исходных данных."""
-    raw = load_real_scores()
+    raw = load_real_scores(data_signature=data_signature)
     return prepare_scores(raw, PROFILES[profile_name])
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, max_entries=32)
 def get_profile_clusters(profile_name, data_signature, streets_signature, threshold_values):
     """Общий набор кластеров для карты, рейтинга и сравнения."""
     weights_data = get_profile_scores(profile_name, data_signature)
@@ -276,20 +83,21 @@ if not st.session_state.authenticated:
     with left:
         st.markdown(
             '<div class="hero-shell"><div class="hero-kicker">MESTO · ГОРОДСКАЯ СРЕДА</div>'
-            '<div class="hero-title">Город ближе.<br>Жизнь удобнее.</div>'
-            '<div class="hero-subtitle">Найдите жилую территорию Магнитогорска, '
-            'которая совпадает с вашим ритмом жизни. Сравнивайте инфраструктуру '
-            'не по ощущениям, а по данным.</div>'
+            '<div class="hero-title">Где жить<br>в Магнитогорске</div>'
+            '<div class="hero-subtitle">Найдите жилую территорию Магнитогорска '
+            'с нужной вам инфраструктурой. Сравнивайте транспорт, школы и парки '
+            'по открытым данным.</div>'
             '<div class="hero-tag">250 × 250 м · интерактивная карта</div></div>',
             unsafe_allow_html=True,
         )
     with right:
         st.markdown(
             '<div class="login-panel"><div class="section-eyebrow">ВАШ ГОРОДСКОЙ СЦЕНАРИЙ</div>'
-            '<div class="login-heading">Добро пожаловать в Mesto</div></div>',
+            '<div class="login-heading">Выберите свой сценарий</div></div>',
             unsafe_allow_html=True,
         )
-        st.write("Выберите приоритеты — мы настроим рекомендации под ваш образ жизни.")
+        st.write("Шесть критериев городской среды. Приоритеты зависят от вашего образа жизни.")
+        st.caption("Карта доступна без регистрации. Почта не подтверждается и не создаёт аккаунт.")
         with st.form("login_form"):
             profile = st.radio(
                 "Какой сценарий вам ближе?",
@@ -300,11 +108,11 @@ if not st.session_state.authenticated:
                     "Школы, медицина и зелёные зоны",
                 ],
             )
-            email = st.text_input("Электронная почта", placeholder="name@example.com")
-            submitted = st.form_submit_button("Продолжить", type="primary", use_container_width=True)
+            email = st.text_input("Электронная почта (необязательно)", placeholder="name@example.com")
+            submitted = st.form_submit_button("Открыть карту", type="primary", use_container_width=True)
             if submitted:
                 email = email.strip()
-                if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+                if email and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
                     st.error("Введите корректный адрес электронной почты.")
                 else:
                     st.session_state.user_email = email
@@ -331,16 +139,16 @@ with nav_col:
         with nav_cols[nav_index]:
             active_class = "nav-active" if st.session_state["main_page"] == nav_item else ""
             st.markdown(f'<div class="nav-button {active_class}">', unsafe_allow_html=True)
-            if st.button(nav_item, key=f"nav_{nav_index}", use_container_width=True):
+            if st.button(nav_item, key=f"nav_{nav_index}", type="primary" if st.session_state["main_page"] == nav_item else "secondary", use_container_width=True):
                 st.session_state["main_page"] = nav_item
                 st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 with account_col:
-    account_left, account_right = st.columns([3, 1])
+    account_left, account_right = st.columns([2, 2])
     with account_left:
         st.markdown(f'<div class="profile-pill">{profile}</div>', unsafe_allow_html=True)
     with account_right:
-        if st.button("Выйти", key="logout_top", help=st.session_state.user_email):
+        if st.button("Сценарий", key="logout_top", help=st.session_state.user_email):
             st.session_state.authenticated = False
             st.session_state.user_email = ""
             st.rerun()
@@ -408,7 +216,12 @@ threshold_values = tuple(
 
 # Страницы приложения
 if page == "Карта":
-    map_col, details_col = st.columns([1.65, 1], gap="medium")
+    summary = st.columns(3)
+    summary[0].metric("Жилых ячеек", f"{len(data):,}".replace(",", " "))
+    summary[1].metric("Средний индекс · " + profile.lower(), f"{data['comfort_index'].mean():.1f} / 100")
+    summary[2].metric("Размер ячейки", "250 × 250 м")
+    st.caption("Сводка по всем жилым ячейкам. Фильтры ниже меняют состав карты.")
+    map_col, details_col = st.columns([2.1, 1], gap="medium")
     with map_col:
         st.markdown('<div class="map-heading">Карта жилых территорий</div>', unsafe_allow_html=True)
         color_map = LinearColormap(
@@ -419,6 +232,7 @@ if page == "Карта":
             zoom_start=12,
             tiles=None,
             control_scale=True,
+            prefer_canvas=True,
         )
         city_map.get_root().header.add_child(folium.Element("""
         <style>
@@ -461,9 +275,7 @@ if page == "Карта":
             </a>
             """))
         else:
-            st.warning(
-                "Ключ Яндекс Карт не найден в Secrets. Используется OpenStreetMap."
-            )
+            st.caption("Подложка OpenStreetMap · данные городской инфраструктуры OSM")
 
         folium.TileLayer(
             tiles="https://tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -577,7 +389,7 @@ if page == "Карта":
         map_result = st_folium(
             city_map,
             use_container_width=True,
-            height=720,
+            height=580,
             key="clustered_comfort_map",
             returned_objects=["last_object_clicked", "last_object_clicked_popup"],
         )
@@ -744,6 +556,8 @@ elif page == "Сравнение":
         chart_data["criterion"] = chart_data["criterion"].map(
             {f"score_{key}": label for key, label in CRITERIA.items()}
         )
+        import plotly.express as px
+
         fig = px.bar(
             chart_data, x="criterion", y="score", color="Территория",
             barmode="group", range_y=[0, 100],

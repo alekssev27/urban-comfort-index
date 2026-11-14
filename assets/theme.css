@@ -1,0 +1,49 @@
+:root{--ink:#172d29;--muted:#566861;--green:#215c4b;--lime:#d7edb2;--paper:#f5f5ef;--line:#dce2d8;--card:#fff}
+html,body,.stApp{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink)}
+.stApp{background:var(--paper)}
+.block-container{max-width:1480px;padding:2.8rem 2.5rem 3rem}
+header[data-testid="stHeader"]{background:var(--paper)}
+[data-testid="stSidebar"]{display:none}
+h1,h2,h3{color:var(--ink);letter-spacing:-.035em;font-weight:650}
+h2{font-size:2.1rem}h3{font-size:1.25rem}
+.top-brand{font-size:2rem;font-weight:750;letter-spacing:-.075em;line-height:1}
+.top-brand:before{content:"";display:inline-block;width:15px;height:20px;border:3px solid var(--green);border-top-width:7px;margin-right:10px;border-radius:2px}
+.top-location{font-size:.8rem;color:var(--muted);margin:.45rem 0 0 28px}
+.profile-pill{display:inline-flex;background:#e7eddf;color:var(--green);border-radius:6px;padding:10px 12px;font-size:.8rem;font-weight:600}
+.stButton button,.stFormSubmitButton button,.stLinkButton a{min-height:44px;border-radius:8px;transition:background .16s,transform .16s;border-color:var(--line);font-weight:600}
+.stButton button:hover,.stFormSubmitButton button:hover,.stLinkButton a:hover{transform:translateY(-1px)}
+.stButton button:active,.stFormSubmitButton button:active{transform:translateY(1px)}
+button:focus-visible,a:focus-visible{outline:3px solid #537f39!important;outline-offset:3px}
+.stButton button[kind="primary"],.stFormSubmitButton button[kind="primary"]{background:var(--green);color:#fff;border-color:var(--green)}
+[data-testid="stMetric"]{border-top:1px solid var(--line);padding:15px 0 12px}
+[data-testid="stMetricLabel"]{color:var(--muted)}
+[data-testid="stMetricValue"]{font-size:2.1rem;font-weight:600;color:var(--green);font-variant-numeric:tabular-nums;letter-spacing:-.045em}
+[data-testid="stVerticalBlockBorderWrapper"]{border-radius:12px;border-color:var(--line);background:var(--card)}
+[data-testid="stDataFrame"]{border:1px solid var(--line);border-radius:8px;overflow:hidden}
+[data-testid="stExpander"]{border-color:var(--line);border-radius:8px;background:#fff}
+[data-testid="stForm"]{border:0;padding:0}
+[data-testid="stSelectbox"] [data-baseweb="select"]>div{background:#fff;border-color:var(--line);border-radius:8px}
+.map-heading{font-size:1.15rem;font-weight:650;margin:.7rem 0 1rem}
+.hero-shell{position:relative;overflow:hidden;min-height:560px;padding:3rem;border-radius:12px;background:#183d33;color:#fff;display:flex;flex-direction:column;justify-content:center;animation:enter .35s ease-out}
+.hero-shell:after{content:"";position:absolute;right:-80px;bottom:-100px;width:270px;height:270px;border:45px solid #315b44;transform:rotate(-25deg);pointer-events:none}
+.hero-kicker{font-size:.8rem;letter-spacing:.1em;color:#c4d9bc;margin-bottom:2.5rem}
+.hero-title{position:relative;z-index:1;font-size:clamp(2.6rem,4.8vw,4.7rem);font-weight:600;line-height:1.06;letter-spacing:-.055em;margin-bottom:1.6rem}
+.hero-subtitle{position:relative;z-index:1;max-width:460px;font-size:1.08rem;line-height:1.7;color:#e0e9dd;margin-bottom:2.3rem}
+.hero-tag{position:relative;z-index:1;font-size:.85rem;color:#d6e9be;border-top:1px solid #638274;padding-top:1.2rem;width:fit-content}
+.login-heading{font-size:1.85rem;font-weight:650;letter-spacing:-.035em;margin:.8rem 0}
+.section-eyebrow{font-size:.75rem;letter-spacing:.1em;color:var(--muted);font-weight:600}
+.page-intro{padding:.6rem 0 1rem}.page-intro h2{margin:.3rem 0}.page-intro p{color:var(--muted);margin:0}
+.stCaption{color:var(--muted)}
+hr{border-color:var(--line)}
+iframe{border-radius:10px}
+@keyframes enter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+@media(max-width:900px){.block-container{padding:2.2rem 1rem 2rem}.hero-shell{padding:2rem;min-height:400px}.hero-title{font-size:3rem}.top-brand{font-size:1.7rem}.profile-pill{white-space:normal}}
+@media(max-width:480px){.hero-title{font-size:2.65rem}.hero-shell{min-height:380px}.hero-kicker{margin-bottom:1.5rem}h2{font-size:1.8rem}}
+/* Keep the map within the first screen of the analytical workspace. */
+[data-testid="stVerticalBlock"]{gap:.65rem}
+[data-testid="stDivider"]{margin:.15rem 0}
+hr{margin:.6rem 0}
+.page-intro{padding:.25rem 0 .5rem}.page-intro h2{padding:.25rem 0 .4rem;font-size:1.85rem}.page-intro p{font-size:.95rem}
+[data-testid="stMetric"]{padding:9px 0 6px}
+.map-heading{margin:.25rem 0 .4rem}
